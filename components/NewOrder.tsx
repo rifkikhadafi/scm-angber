@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Order, UnitType } from '../types';
 import { UNIT_TYPES } from '../constants';
 import { sendOrderNotification } from '../services/whatsappService';
+import { supabase } from '../services/supabaseClient';
 
 interface NewOrderProps {
   orders: Order[];
@@ -29,14 +30,12 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
     const newStart = timeToMinutes(formData.startTime);
     const newEnd = timeToMinutes(formData.endTime);
 
-    // Validate if end time is after start time
     if (newEnd <= newStart) {
       setError("Jam selesai harus lebih besar dari jam mulai.");
       return true;
     }
 
     return orders.some(existing => {
-      // Only check conflicts for the same unit, same date, and non-closed status
       if (
         existing.unit === formData.unit && 
         existing.date === formData.date && 
@@ -44,37 +43,25 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
       ) {
         const existingStart = timeToMinutes(existing.startTime);
         const existingEnd = timeToMinutes(existing.endTime);
-
-        // Standard overlap logic: (StartA < EndB) && (StartB < EndA)
         return newStart < existingEnd && existingStart < newEnd;
       }
       return false;
     });
   };
 
-  const handleChange = (field: string, value: string) => {
-    setError(null); // Clear error on any change
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Check for schedule conflicts
     if (checkOverlap()) {
-      // If end time validation failed, error is already set. 
-      // Otherwise, set the custom rejection message.
-      if (!error) {
-        setError("Mohon maaf, terdapat pesanan lain yang akan/sedang dikerjakan. Silahkan informasikan ke pihak SCM untuk tindak lanjutnya.");
-      }
+      if (!error) setError("Mohon maaf, jadwal sudah terisi. Silahkan hubungi SCM.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const nextId = `REQ-${String(orders.length + 1).padStart(5, '0')}`;
+      const nextId = `REQ-${String(Date.now()).slice(-5)}`; // ID Unik sederhana
       const newOrder: Order = {
         ...formData,
         id: nextId,
@@ -82,10 +69,25 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         createdAt: new Date().toISOString()
       };
 
+      // 1. Simpan ke Supabase
+      const { error: dbError } = await supabase.from('orders').insert({
+        id: newOrder.id,
+        unit: newOrder.unit,
+        date: newOrder.date,
+        start_time: newOrder.startTime,
+        end_time: newOrder.endTime,
+        details: newOrder.details,
+        status: newOrder.status
+      });
+
+      if (dbError) throw dbError;
+
+      // 2. Kirim Notifikasi WA (Database First)
       await sendOrderNotification(newOrder, 'NEW');
       onOrderCreated(newOrder);
-    } catch (err) {
-      setError("Gagal mengirim pesanan. Silakan coba lagi.");
+    } catch (err: any) {
+      console.error('Submit Error:', err);
+      setError("Gagal menyimpan pesanan: " + (err.message || "Koneksi bermasalah"));
     } finally {
       setLoading(false);
     }
@@ -98,24 +100,22 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         <p className="text-sm md:text-base text-slate-400">Cek ketersediaan di Schedule sebelum memesan.</p>
       </header>
 
-      <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-2xl md:rounded-3xl space-y-5 md:space-y-6 shadow-2xl relative overflow-hidden">
+      <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-2xl md:rounded-3xl space-y-5 md:space-y-6 shadow-2xl relative">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-start space-x-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-start space-x-3">
             <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-red-400 text-sm leading-relaxed font-medium">
-              {error}
-            </p>
+            <p className="text-red-400 text-sm font-medium">{error}</p>
           </div>
         )}
 
         <div className="flex flex-col space-y-2">
           <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Pilih Unit</label>
           <select
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all appearance-none cursor-pointer"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 outline-none"
             value={formData.unit}
-            onChange={e => handleChange('unit', e.target.value)}
+            onChange={e => setFormData({...formData, unit: e.target.value as UnitType})}
           >
             {UNIT_TYPES.map(unit => <option key={unit} value={unit} className="bg-slate-900">{unit}</option>)}
           </select>
@@ -125,31 +125,31 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
           <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Tanggal Pelaksanaan</label>
           <input
             type="date"
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
             value={formData.date}
-            onChange={e => handleChange('date', e.target.value)}
+            onChange={e => setFormData({...formData, date: e.target.value})}
             required
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col space-y-2">
-            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Jam Mulai (WITA)</label>
+            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Jam Mulai</label>
             <input
               type="time"
-              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
+              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
               value={formData.startTime}
-              onChange={e => handleChange('startTime', e.target.value)}
+              onChange={e => setFormData({...formData, startTime: e.target.value})}
               required
             />
           </div>
           <div className="flex flex-col space-y-2">
-            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Jam Selesai (WITA)</label>
+            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Jam Selesai</label>
             <input
               type="time"
-              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
+              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
               value={formData.endTime}
-              onChange={e => handleChange('endTime', e.target.value)}
+              onChange={e => setFormData({...formData, endTime: e.target.value})}
               required
             />
           </div>
@@ -158,10 +158,10 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         <div className="flex flex-col space-y-2">
           <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Detail Pekerjaan</label>
           <textarea
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 focus:ring-2 focus:ring-blue-500/50 outline-none h-32 md:h-28 resize-none transition-all"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none h-28 resize-none"
             placeholder="Lokasi dan jenis pekerjaan..."
             value={formData.details}
-            onChange={e => handleChange('details', e.target.value)}
+            onChange={e => setFormData({...formData, details: e.target.value})}
             required
           />
         </div>
@@ -169,16 +169,9 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-5 md:py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl transition-all shadow-xl shadow-blue-500/10 active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
+          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-xl hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
         >
-          {loading ? (
-            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <span>Kirim Permintaan Unit</span>
-          )}
+          {loading ? <span>Mengirim...</span> : <span>Kirim Permintaan</span>}
         </button>
       </form>
     </div>

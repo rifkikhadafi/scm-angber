@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Order, UnitType, OrderStatus } from '../types';
 import { UNIT_TYPES } from '../constants';
 import { sendOrderNotification } from '../services/whatsappService';
+import { supabase } from '../services/supabaseClient';
 
 interface ChangeOrderProps {
   orders: Order[];
@@ -27,9 +28,31 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
     if (!formData) return;
     setLoading(true);
 
-    await sendOrderNotification(formData, 'CHANGE');
-    onOrderUpdated(formData);
-    setLoading(false);
+    try {
+      // 1. Update ke Supabase
+      const { error: dbError } = await supabase
+        .from('orders')
+        .update({
+          unit: formData.unit,
+          date: formData.date,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
+          details: formData.details,
+          status: formData.status
+        })
+        .eq('id', formData.id);
+
+      if (dbError) throw dbError;
+
+      // 2. Notifikasi WA
+      await sendOrderNotification(formData, 'CHANGE');
+      onOrderUpdated(formData);
+    } catch (err) {
+      console.error('Update Error:', err);
+      alert('Gagal mengupdate database.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,7 +66,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
         <div className="flex flex-col space-y-2">
           <label className="text-sm font-medium text-slate-300">Pilih ID Pesanan</label>
           <select
-            className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
             value={selectedId}
             onChange={e => handleSelect(e.target.value)}
           >
@@ -58,7 +81,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
               <div className="flex flex-col space-y-2">
                 <label className="text-sm font-medium text-slate-300">Unit</label>
                 <select
-                  className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
                   value={formData.unit}
                   onChange={e => setFormData({ ...formData, unit: e.target.value as UnitType })}
                 >
@@ -68,7 +91,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
               <div className="flex flex-col space-y-2">
                 <label className="text-sm font-medium text-slate-300">Status Pekerjaan</label>
                 <select
-                  className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
                   value={formData.status}
                   onChange={e => setFormData({ ...formData, status: e.target.value as OrderStatus })}
                 >
@@ -112,19 +135,10 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
               </div>
             </div>
 
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-medium text-slate-300">Detail Pekerjaan</label>
-              <textarea
-                className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 h-24 outline-none"
-                value={formData.details}
-                onChange={e => setFormData({ ...formData, details: e.target.value })}
-              />
-            </div>
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl disabled:opacity-50"
             >
               {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
             </button>
