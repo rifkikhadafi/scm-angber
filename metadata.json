@@ -1,0 +1,7 @@
+{
+  "name": "SCM Angber",
+  "description": "A high-performance registration portal that automatically syncs and notifies WhatsApp groups via Fonnte API, featuring a sleek modern UI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

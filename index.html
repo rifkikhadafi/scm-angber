@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCM Angber</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            /* Prevent horizontal scroll on body while allowing vertical */
+            overflow-x: hidden;
+        }
+
+        /* 
+           Using scrollbar-gutter: stable prevents the layout from 'jumping' 
+           or changing ratio when a scrollbar appears or disappears.
+        */
+        html {
+            scrollbar-gutter: stable;
+        }
+
+        /* Ultra-Minimalist Scrollbar Styles */
+        ::-webkit-scrollbar {
+            width: 3px; /* Even thinner vertical scrollbar */
+            height: 3px; /* Even thinner horizontal scrollbar */
+        }
+
+        /* Remove arrows/buttons */
+        ::-webkit-scrollbar-button {
+            display: none;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(71, 85, 105, 0.3); /* Subtle slate-600 with low opacity */
+            border-radius: 20px;
+            transition: background 0.2s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 0.6); /* Slightly more visible on hover */
+        }
+
+        /* Firefox Support */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(71, 85, 105, 0.3) transparent;
+        }
+
+        /* Utility classes */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Custom scrollbar class for containers like the timeline */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
