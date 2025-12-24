@@ -4,14 +4,12 @@ import { Order } from '../types';
 import { UNIT_TYPES, STATUS_COLORS } from '../constants';
 
 const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
-  // Fungsi pembantu untuk mendapatkan waktu WITA (UTC+8) yang akurat
   const getWitaTime = () => {
     const d = new Date();
     const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     return new Date(utc + (3600000 * 8));
   };
 
-  // Mendapatkan string tanggal YYYY-MM-DD dalam WITA
   const getWitaDateString = (dateObj: Date) => {
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -31,7 +29,6 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
       if (currentDayString === selectedDate) {
         const hour = witaNow.getHours();
         const minute = witaNow.getMinutes();
-        // Kalkulasi posisi persentase dalam blok 24 jam
         const position = ((hour + minute / 60) / 24) * 100;
         setCurrentTimePos(position);
       } else {
@@ -44,15 +41,13 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
     return () => clearInterval(interval);
   }, [selectedDate]);
 
-  // Efek auto-scroll agar garis waktu berada di tengah viewport saat pertama kali dibuka
   useEffect(() => {
     if (currentTimePos !== null && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
-      const stickyWidth = window.innerWidth < 768 ? 112 : 160; // w-28 = 112px, w-40 = 160px
+      const stickyWidth = window.innerWidth < 768 ? 112 : 160;
       const viewportWidth = container.clientWidth;
       const timelineTotalWidth = container.scrollWidth - stickyWidth;
       
-      // Hitung target scroll: posisi indikator dikurangi setengah dari area timeline yang terlihat
       const indicatorPx = (currentTimePos / 100) * timelineTotalWidth;
       const scrollTarget = indicatorPx - (viewportWidth - stickyWidth) / 2;
       
@@ -85,7 +80,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-white">Timeline Unit</h2>
-          <p className="text-sm md:text-base text-slate-400">Pantau jadwal operasional harian (WITA).</p>
+          <p className="text-sm text-slate-400">Pantau jadwal operasional harian (WITA).</p>
         </div>
         <div className="flex items-center space-x-3 bg-slate-900/40 p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-800">
           <input
@@ -102,30 +97,24 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
           ref={scrollContainerRef}
           className="relative overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
         >
-          {/* Container lebar untuk memastikan timeline dapat discroll */}
           <div className="min-w-[1200px] md:min-w-[1600px] relative">
             
             {/* Header Jam */}
             <div className="flex border-b border-slate-800/50 pb-4 relative z-50">
-              {/* Kolom Sticky Header */}
-              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-[60] text-slate-500 text-[10px] md:text-xs font-black uppercase tracking-widest px-4 py-1 border-r border-slate-800/50 flex items-center shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)]">
+              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-[60] text-xs font-black uppercase tracking-widest px-4 py-1 border-r border-slate-800/50 flex items-center shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)] text-slate-500">
                 UNIT TYPE
               </div>
               
-              {/* Timeline Hours */}
               <div className="flex-1 flex relative">
                 {hours.map(h => (
-                  <div key={h} className="flex-1 text-center text-[9px] md:text-[10px] text-slate-600 border-l border-slate-800/30 first:border-l-0">
+                  <div key={h} className="flex-1 text-center text-[10px] text-slate-600 border-l border-slate-800/30 first:border-l-0 font-bold">
                     {String(h === 24 ? 0 : h).padStart(2, '0')}:00
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Body Timeline */}
             <div className="relative">
-              
-              {/* Garis Waktu Sekarang */}
               {currentTimePos !== null && (
                 <div className="absolute inset-0 pointer-events-none z-30">
                   <div className="flex h-full">
@@ -147,16 +136,12 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                   const dayOrders = orders.filter(o => o.unit === unit && o.date === selectedDate);
                   return (
                     <div key={unit} className="flex group hover:bg-slate-800/10 transition-colors relative z-20">
-                      
-                      {/* Kolom Sticky Unit Name - Pastikan background solid dan tidak berbayang */}
                       <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-40 font-bold text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-800/50 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)]">
                         {unit}
                       </div>
 
-                      {/* Baris Timeline Content - Hapus margin-left agar lurus dengan header */}
                       <div className="flex-1 relative h-12 md:h-16 flex items-center">
                         <div className="absolute inset-x-0 h-10 md:h-12 bg-slate-800/5 rounded-xl border border-slate-800/20">
-                          {/* Garis Grid Vertikal */}
                           {hours.map(h => (
                             <div 
                               key={h} 
@@ -165,11 +150,10 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                             ></div>
                           ))}
                           
-                          {/* Blok Pesanan */}
                           {dayOrders.map(order => {
                             const style = getPosition(order.startTime, order.endTime);
                             const colorParts = STATUS_COLORS[order.status].split(' ');
-                            const bgColorClass = colorParts[0].replace('/20', '/95'); // Lebih solid untuk visibilitas
+                            const bgColorClass = colorParts[0].replace('/20', '/95');
                             
                             return (
                               <div
@@ -198,15 +182,14 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       </div>
 
-      {/* Legenda Status */}
-      <div className="flex flex-wrap gap-4 text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider">
+      <div className="flex flex-wrap gap-4 text-xs text-slate-500 font-bold uppercase tracking-widest">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
           <span>Requested</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-yellow-500 rounded-sm"></div>
-          <span>On Progress</span>
+          <span>Progress</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
@@ -218,7 +201,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
         <div className="flex items-center space-x-2 ml-auto">
            <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
-           <span className="text-white/80 font-black">Realtime WITA</span>
+           <span className="text-white/80 font-black">Realtime</span>
         </div>
       </div>
     </div>

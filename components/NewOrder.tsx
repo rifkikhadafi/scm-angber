@@ -72,7 +72,6 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
       return;
     }
 
-    // Check overlap for each selected unit
     for (const unit of formData.selectedUnits) {
       const overlapMsg = checkOverlap(unit);
       if (overlapMsg) {
@@ -138,7 +137,7 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
     <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       <header>
         <h2 className="text-2xl md:text-3xl font-bold text-white">Pesan Unit Baru</h2>
-        <p className="text-sm md:text-base text-slate-400">Silahkan isi data pemesanan operasional unit.</p>
+        <p className="text-sm text-slate-400">Silahkan isi data pemesanan operasional unit.</p>
       </header>
 
       <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-2xl md:rounded-3xl space-y-5 md:space-y-6 shadow-2xl relative">
@@ -152,10 +151,10 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         )}
 
         <div className="flex flex-col space-y-2">
-          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Nama Pemesan</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Nama Pemesan</label>
           <input
             type="text"
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
             placeholder="Masukan nama anda"
             value={formData.ordererName}
             onChange={e => setFormData({...formData, ordererName: e.target.value})}
@@ -164,14 +163,14 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         </div>
 
         <div className="flex flex-col space-y-3">
-          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Pilih Unit (Bisa pilih lebih dari 1)</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Pilih Unit</label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {UNIT_TYPES.map(unit => (
               <button
                 key={unit}
                 type="button"
                 onClick={() => toggleUnit(unit as UnitType)}
-                className={`px-3 py-3 rounded-xl border text-sm font-bold transition-all duration-200 ${
+                className={`px-3 py-3 rounded-xl border text-xs md:text-sm font-bold transition-all duration-200 ${
                   formData.selectedUnits.includes(unit as UnitType)
                     ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
                     : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'
@@ -184,10 +183,10 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         </div>
 
         <div className="flex flex-col space-y-2">
-          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Tanggal Pelaksanaan</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Tanggal Pelaksanaan</label>
           <input
             type="date"
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer"
             value={formData.date}
             onChange={e => setFormData({...formData, date: e.target.value})}
             required
@@ -196,20 +195,20 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col space-y-2">
-            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Jam Mulai</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Jam Mulai</label>
             <input
               type="time"
-              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer"
               value={formData.startTime}
               onChange={e => setFormData({...formData, startTime: e.target.value})}
               required
             />
           </div>
           <div className="flex flex-col space-y-2">
-            <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Jam Selesai</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Jam Selesai</label>
             <input
               type="time"
-              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer"
               value={formData.endTime}
               onChange={e => setFormData({...formData, endTime: e.target.value})}
               required
@@ -218,9 +217,9 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         </div>
 
         <div className="flex flex-col space-y-2">
-          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Detail Pekerjaan</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Detail Pekerjaan</label>
           <textarea
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none h-24 resize-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none h-24 resize-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
             placeholder="Sebutkan lokasi dan jenis pekerjaan..."
             value={formData.details}
             onChange={e => setFormData({...formData, details: e.target.value})}
@@ -233,7 +232,7 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
           disabled={loading}
           className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-xl hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2 shadow-xl shadow-blue-500/10"
         >
-          {loading ? <span>Mengirim...</span> : <span>Kirim Permintaan</span>}
+          {loading ? <span className="text-sm">Mengirim...</span> : <span className="text-sm uppercase tracking-widest">Kirim Permintaan</span>}
         </button>
       </form>
     </div>

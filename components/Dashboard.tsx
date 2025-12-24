@@ -26,9 +26,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         .eq('id', order.id);
 
       if (error) throw error;
-      
-      // Notifikasi WA dihapus sesuai permintaan user: 
-      // "Untuk perubahan status tidak perlu mengirimkan pesan ke WA Group"
     } catch (err) {
       console.error('Failed to update status:', err);
       alert('Gagal memperbarui status.');
@@ -39,13 +36,13 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <header>
         <h2 className="text-2xl md:text-3xl font-bold text-white">Work Monitoring</h2>
-        <p className="text-sm md:text-base text-slate-400">Silahkan cek status pesanan anda.</p>
+        <p className="text-sm text-slate-400">Silahkan cek status pesanan anda.</p>
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {stats.map(stat => (
           <div key={stat.label} className="bg-slate-900/40 border border-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl">
-            <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
             <p className={`text-2xl md:text-4xl font-black mt-1 md:mt-2 ${stat.color}`}>{stat.count}</p>
           </div>
         ))}
@@ -53,7 +50,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl md:rounded-3xl overflow-hidden shadow-xl">
         <div className="p-5 md:p-6 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-lg md:text-xl font-bold text-white">Detail Pekerjaan Aktif</h3>
+          <h3 className="text-lg font-bold text-white">Detail Pekerjaan Aktif</h3>
           <span className="text-xs text-slate-500 font-bold bg-slate-800 px-2 py-1 rounded-lg">
             {activeJobs.length} Aktif
           </span>
@@ -103,7 +100,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-slate-500 text-sm uppercase tracking-wider">
+              <tr className="text-slate-500 text-xs uppercase tracking-wider">
                 <th className="px-6 py-4 font-bold">Order ID</th>
                 <th className="px-6 py-4 font-bold">Pemesan</th>
                 <th className="px-6 py-4 font-bold">Unit</th>
@@ -111,7 +108,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 <th className="px-6 py-4 font-bold">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-slate-800/50 text-sm">
               {activeJobs.map(order => (
                 <tr key={order.id} className="hover:bg-slate-800/20 transition-colors">
                   <td className="px-6 py-4 font-mono text-blue-400 font-bold">{order.id}</td>
