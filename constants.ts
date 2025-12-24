@@ -18,7 +18,8 @@ export const STATUS_COLORS: Record<string, string> = {
   'Requested': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   'On Progress': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   'Pending': 'bg-red-500/20 text-red-400 border-red-500/30',
-  'Closed': 'bg-green-500/20 text-green-400 border-green-500/30'
+  'Closed': 'bg-green-500/20 text-green-400 border-green-500/30',
+  'Canceled': 'bg-slate-500/20 text-slate-500 border-slate-500/30'
 };
 
 export const GENDER_OPTIONS: string[] = ['Laki-laki', 'Perempuan'];

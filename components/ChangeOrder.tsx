@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Order, UnitType, OrderStatus } from '../types';
+import { Order, UnitType } from '../types';
 import { UNIT_TYPES } from '../constants';
 import { sendOrderNotification } from '../services/whatsappService';
 import { supabase } from '../services/supabaseClient';
@@ -15,7 +15,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Order | null>(null);
 
-  const availableOrders = orders.filter(o => o.status !== 'Closed');
+  const availableOrders = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -29,27 +29,49 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
     setLoading(true);
 
     try {
-      // 1. Update ke Supabase
       const { error: dbError } = await supabase
         .from('orders')
         .update({
           unit: formData.unit,
+          orderer_name: formData.ordererName,
           date: formData.date,
           start_time: formData.startTime,
           end_time: formData.endTime,
-          details: formData.details,
-          status: formData.status
+          details: formData.details
         })
         .eq('id', formData.id);
 
       if (dbError) throw dbError;
 
-      // 2. Notifikasi WA
       await sendOrderNotification(formData, 'CHANGE');
       onOrderUpdated(formData);
     } catch (err) {
       console.error('Update Error:', err);
       alert('Gagal mengupdate database.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!formData) return;
+    if (!window.confirm("Apakah Anda yakin ingin membatalkan pesanan ini? ID tidak akan bisa digunakan kembali.")) return;
+
+    setLoading(true);
+    try {
+      const { error: dbError } = await supabase
+        .from('orders')
+        .update({ status: 'Canceled' })
+        .eq('id', formData.id);
+
+      if (dbError) throw dbError;
+
+      const canceledOrder = { ...formData, status: 'Canceled' as const };
+      await sendOrderNotification(canceledOrder, 'DELETE');
+      onOrderUpdated(canceledOrder);
+    } catch (err) {
+      console.error('Cancel Error:', err);
+      alert('Gagal membatalkan pesanan.');
     } finally {
       setLoading(false);
     }
@@ -71,12 +93,21 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
             onChange={e => handleSelect(e.target.value)}
           >
             <option value="">-- Pilih ID REQ --</option>
-            {availableOrders.map(o => <option key={o.id} value={o.id}>{o.id} - {o.unit}</option>)}
+            {availableOrders.map(o => <option key={o.id} value={o.id}>{o.id} - {o.unit} ({o.ordererName})</option>)}
           </select>
         </div>
 
         {formData && (
           <form onSubmit={handleSubmit} className="space-y-6 pt-6 border-t border-slate-800">
+            <div className="flex flex-col space-y-2">
+              <label className="text-sm font-medium text-slate-300">Nama Pemesan</label>
+              <input
+                className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
+                value={formData.ordererName}
+                onChange={e => setFormData({ ...formData, ordererName: e.target.value })}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div className="flex flex-col space-y-2">
                 <label className="text-sm font-medium text-slate-300">Unit</label>
@@ -89,17 +120,12 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
                 </select>
               </div>
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium text-slate-300">Status Pekerjaan</label>
-                <select
-                  className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none"
-                  value={formData.status}
-                  onChange={e => setFormData({ ...formData, status: e.target.value as OrderStatus })}
-                >
-                  <option value="Requested">Requested</option>
-                  <option value="On Progress">On Progress</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Closed">Closed</option>
-                </select>
+                <label className="text-sm font-medium text-slate-300">ID Pesanan</label>
+                <input
+                  disabled
+                  className="bg-slate-800/30 border border-slate-800 text-slate-500 rounded-xl px-4 py-3 outline-none"
+                  value={formData.id}
+                />
               </div>
             </div>
 
@@ -135,13 +161,23 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl disabled:opacity-50"
-            >
-              {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </button>
+            <div className="flex flex-col md:flex-row gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl disabled:opacity-50 transition-all"
+              >
+                {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelOrder}
+                disabled={loading}
+                className="py-4 px-6 bg-red-500/10 border border-red-500/30 text-red-500 font-bold rounded-xl hover:bg-red-500/20 transition-all"
+              >
+                Hapus Pesanan
+              </button>
+            </div>
           </form>
         )}
       </div>

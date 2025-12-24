@@ -12,10 +12,10 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fungsi untuk memetakan data dari Supabase (snake_case) ke format aplikasi (camelCase)
   const mapOrder = (data: any): Order => ({
     id: data.id,
     unit: data.unit,
+    ordererName: data.orderer_name || '-', // Map snake_case to camelCase
     date: data.date,
     startTime: data.start_time,
     endTime: data.end_time,
@@ -43,12 +43,10 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchOrders();
 
-    // Mengaktifkan Realtime Subscription
     const subscription = supabase
       .channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        console.log('Change received!', payload);
-        fetchOrders(); // Ambil ulang data saat ada perubahan
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchOrders(); 
       })
       .subscribe();
 
@@ -66,7 +64,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#0f172a] text-slate-200 font-sans">
-      {/* Desktop Sidebar */}
       <aside className="w-64 bg-[#1e293b]/50 border-r border-slate-800 flex-col hidden md:flex h-screen sticky top-0">
         <div className="p-6 border-b border-slate-800">
           <h1 className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent text-center">
@@ -93,7 +90,6 @@ const App: React.FC = () => {
         </nav>
       </aside>
 
-      {/* Mobile Header */}
       <header className="md:hidden p-4 border-b border-slate-800 bg-[#1e293b]/50 sticky top-0 z-50 flex justify-between items-center backdrop-blur-lg">
         <h1 className="text-lg font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           SCM ANGBER
@@ -101,7 +97,6 @@ const App: React.FC = () => {
         <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
         <div className="max-w-6xl mx-auto">
           {loading ? (
@@ -130,7 +125,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1e293b] border-t border-slate-800 flex justify-around items-center p-2 pb-6 z-50">
         {menuItems.map(item => (
           <button

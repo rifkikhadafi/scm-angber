@@ -1,7 +1,9 @@
 
 import React from 'react';
-import { Order } from '../types';
+import { Order, OrderStatus } from '../types';
 import { STATUS_COLORS } from '../constants';
+import { supabase } from '../services/supabaseClient';
+import { sendOrderNotification } from '../services/whatsappService';
 
 const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const stats = [
@@ -11,10 +13,27 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     { label: 'Closed', count: orders.filter(o => o.status === 'Closed').length, color: 'text-slate-400' }
   ];
 
-  const activeJobs = orders.filter(o => o.status !== 'Closed');
+  const activeJobs = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
 
   const formatDate = (dateStr: string) => {
     return dateStr.split('-').reverse().join('-');
+  };
+
+  const handleStatusChange = async (order: Order, newStatus: OrderStatus) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', order.id);
+
+      if (error) throw error;
+      
+      const updatedOrder = { ...order, status: newStatus };
+      await sendOrderNotification(updatedOrder, 'CHANGE');
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Gagal memperbarui status.');
+    }
   };
 
   return (
@@ -24,7 +43,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         <p className="text-sm md:text-base text-slate-400">Silahkan cek status pesanan anda.</p>
       </header>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {stats.map(stat => (
           <div key={stat.label} className="bg-slate-900/40 border border-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl">
@@ -34,7 +52,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         ))}
       </div>
 
-      {/* Jobs List */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl md:rounded-3xl overflow-hidden shadow-xl">
         <div className="p-5 md:p-6 border-b border-slate-800 flex justify-between items-center">
           <h3 className="text-lg md:text-xl font-bold text-white">Detail Pekerjaan Aktif</h3>
@@ -43,7 +60,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
           </span>
         </div>
 
-        {/* Mobile View (Card List) */}
         <div className="md:hidden divide-y divide-slate-800/50">
           {activeJobs.length > 0 ? activeJobs.map(order => (
             <div key={order.id} className="p-5 flex flex-col space-y-3 bg-slate-800/10">
@@ -51,10 +67,18 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 <div>
                   <span className="text-blue-400 font-mono text-sm font-bold">{order.id}</span>
                   <h4 className="text-white font-bold text-base">{order.unit}</h4>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">{order.ordererName}</p>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${STATUS_COLORS[order.status]}`}>
-                  {order.status}
-                </span>
+                <select 
+                  value={order.status}
+                  onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
+                  className={`bg-transparent px-2 py-1 rounded-full text-[10px] font-black uppercase border outline-none appearance-none cursor-pointer ${STATUS_COLORS[order.status]}`}
+                >
+                  <option value="Requested">Requested</option>
+                  <option value="On Progress">On Progress</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Closed">Closed</option>
+                </select>
               </div>
               
               <div className="flex items-center space-x-2 text-xs text-slate-400">
@@ -75,34 +99,38 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
           )}
         </div>
 
-        {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-slate-500 text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-bold">Order ID</th>
+                <th className="px-6 py-4 font-bold">Pemesan</th>
                 <th className="px-6 py-4 font-bold">Unit</th>
                 <th className="px-6 py-4 font-bold">Waktu</th>
                 <th className="px-6 py-4 font-bold">Status</th>
-                <th className="px-6 py-4 font-bold">Pekerjaan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {activeJobs.map(order => (
                 <tr key={order.id} className="hover:bg-slate-800/20 transition-colors">
                   <td className="px-6 py-4 font-mono text-blue-400 font-bold">{order.id}</td>
+                  <td className="px-6 py-4 text-slate-300 font-medium">{order.ordererName}</td>
                   <td className="px-6 py-4 text-white font-medium">{order.unit}</td>
-                  <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
+                  <td className="px-6 py-4 text-slate-400 whitespace-nowrap text-xs">
                     <div>{formatDate(order.date)}</div>
-                    <div className="text-xs">{order.startTime} - {order.endTime} WITA</div>
+                    <div>{order.startTime} - {order.endTime} WITA</div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${STATUS_COLORS[order.status]}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400 text-sm max-w-xs truncate">
-                    {order.details}
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
+                      className={`bg-slate-800/50 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold outline-none cursor-pointer hover:border-slate-500 transition-colors ${STATUS_COLORS[order.status].split(' ')[1]}`}
+                    >
+                      <option value="Requested" className="bg-slate-900">Requested</option>
+                      <option value="On Progress" className="bg-slate-900">On Progress</option>
+                      <option value="Pending" className="bg-slate-900">Pending</option>
+                      <option value="Closed" className="bg-slate-900">Closed</option>
+                    </select>
                   </td>
                 </tr>
               ))}

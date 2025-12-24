@@ -2,11 +2,15 @@
 import { Order, FonnteResponse, RegistrationData } from '../types';
 import { FONNTE_API_TOKEN, FONNTE_TARGET_GROUP_ID } from '../constants';
 
-export const sendOrderNotification = async (order: Order, type: 'NEW' | 'CHANGE' = 'NEW'): Promise<FonnteResponse> => {
-  const title = type === 'NEW' ? '🆕 PESANAN UNIT BARU' : '✏️ PERUBAHAN PESANAN';
+export const sendOrderNotification = async (order: Order, type: 'NEW' | 'CHANGE' | 'DELETE' = 'NEW'): Promise<FonnteResponse> => {
+  let title = '🆕 PESANAN UNIT BARU';
+  if (type === 'CHANGE') title = '✏️ PERUBAHAN PESANAN';
+  if (type === 'DELETE') title = '❌ PESANAN DIBATALKAN';
+
   const message = `
 ${title}
 ID: *${order.id}*
+Pemesan: *${order.ordererName}*
 
 *Unit:* ${order.unit}
 *Tanggal:* ${order.date}
@@ -38,7 +42,6 @@ _Sent via Heavy Equipment Ops System_
   }
 };
 
-// Added sendWhatsAppNotification for RegistrationForm.tsx
 export const sendWhatsAppNotification = async (data: RegistrationData): Promise<FonnteResponse> => {
   const message = `
 *PENDAFTARAN BARU*

@@ -14,32 +14,39 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    unit: UNIT_TYPES[0] as UnitType,
+    ordererName: '',
+    selectedUnits: [] as UnitType[],
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
     endTime: '17:00',
     details: ''
   });
 
+  const toggleUnit = (unit: UnitType) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedUnits: prev.selectedUnits.includes(unit)
+        ? prev.selectedUnits.filter(u => u !== unit)
+        : [...prev.selectedUnits, unit]
+    }));
+  };
+
   const timeToMinutes = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   };
 
-  const checkOverlap = () => {
+  const checkOverlap = (unit: UnitType) => {
     const newStart = timeToMinutes(formData.startTime);
     const newEnd = timeToMinutes(formData.endTime);
 
-    if (newEnd <= newStart) {
-      setError("Jam selesai harus lebih besar dari jam mulai.");
-      return true;
-    }
+    if (newEnd <= newStart) return "Jam selesai harus lebih besar dari jam mulai.";
 
-    return orders.some(existing => {
+    const isOverlap = orders.some(existing => {
       if (
-        existing.unit === formData.unit && 
+        existing.unit === unit && 
         existing.date === formData.date && 
-        existing.status !== 'Closed'
+        !['Closed', 'Canceled'].includes(existing.status)
       ) {
         const existingStart = timeToMinutes(existing.startTime);
         const existingEnd = timeToMinutes(existing.endTime);
@@ -47,44 +54,76 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
       }
       return false;
     });
+
+    return isOverlap ? `Unit ${unit} sudah terisi pada jam tersebut.` : null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (checkOverlap()) {
-      if (!error) setError("Mohon maaf, jadwal sudah terisi. Silahkan hubungi SCM.");
+    if (formData.selectedUnits.length === 0) {
+      setError("Pilih minimal satu unit.");
       return;
+    }
+
+    // Check overlap for each selected unit
+    for (const unit of formData.selectedUnits) {
+      const overlapMsg = checkOverlap(unit);
+      if (overlapMsg) {
+        setError(overlapMsg);
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
-      const nextId = `REQ-${String(Date.now()).slice(-5)}`; // ID Unik sederhana
-      const newOrder: Order = {
-        ...formData,
-        id: nextId,
-        status: 'Requested',
-        createdAt: new Date().toISOString()
-      };
+      // 1. Dapatkan nomor urut ID berikutnya dengan menghitung TOTAL row (termasuk canceled)
+      const { count, error: countError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
 
-      // 1. Simpan ke Supabase
-      const { error: dbError } = await supabase.from('orders').insert({
-        id: newOrder.id,
-        unit: newOrder.unit,
-        date: newOrder.date,
-        start_time: newOrder.startTime,
-        end_time: newOrder.endTime,
-        details: newOrder.details,
-        status: newOrder.status
-      });
+      if (countError) throw countError;
+      
+      let nextIdNumber = (count || 0) + 1;
 
-      if (dbError) throw dbError;
+      // 2. Loop untuk simpan setiap unit
+      for (const unit of formData.selectedUnits) {
+        const idString = `REQ-${String(nextIdNumber).padStart(4, '0')}`;
+        
+        const newOrderData = {
+          id: idString,
+          unit: unit,
+          orderer_name: formData.ordererName,
+          date: formData.date,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
+          details: formData.details,
+          status: 'Requested'
+        };
 
-      // 2. Kirim Notifikasi WA (Database First)
-      await sendOrderNotification(newOrder, 'NEW');
-      onOrderCreated(newOrder);
+        const { error: dbError } = await supabase.from('orders').insert(newOrderData);
+        if (dbError) throw dbError;
+
+        // Map to internal Order type for WA and app state
+        const finalOrder: Order = {
+          id: idString,
+          unit: unit,
+          ordererName: formData.ordererName,
+          date: formData.date,
+          startTime: formData.startTime,
+          endTime: formData.endTime,
+          details: formData.details,
+          status: 'Requested',
+          createdAt: new Date().toISOString()
+        };
+
+        await sendOrderNotification(finalOrder, 'NEW');
+        nextIdNumber++; // Increment for next unit in the same batch
+      }
+
+      onOrderCreated({} as Order); // Refresh triggers fetchOrders in App.tsx
     } catch (err: any) {
       console.error('Submit Error:', err);
       setError("Gagal menyimpan pesanan: " + (err.message || "Koneksi bermasalah"));
@@ -97,7 +136,7 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
     <div className="max-w-2xl mx-auto space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       <header>
         <h2 className="text-2xl md:text-3xl font-bold text-white">Pesan Unit Baru</h2>
-        <p className="text-sm md:text-base text-slate-400">Cek ketersediaan di Schedule sebelum memesan.</p>
+        <p className="text-sm md:text-base text-slate-400">Silahkan isi data pemesanan unit.</p>
       </header>
 
       <form onSubmit={handleSubmit} className="bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-2xl md:rounded-3xl space-y-5 md:space-y-6 shadow-2xl relative">
@@ -111,14 +150,35 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         )}
 
         <div className="flex flex-col space-y-2">
-          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Pilih Unit</label>
-          <select
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-4 md:py-3 outline-none"
-            value={formData.unit}
-            onChange={e => setFormData({...formData, unit: e.target.value as UnitType})}
-          >
-            {UNIT_TYPES.map(unit => <option key={unit} value={unit} className="bg-slate-900">{unit}</option>)}
-          </select>
+          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Nama Pemesan</label>
+          <input
+            type="text"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Masukkan nama lengkap"
+            value={formData.ordererName}
+            onChange={e => setFormData({...formData, ordererName: e.target.value})}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col space-y-3">
+          <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Pilih Unit (Bisa lebih dari 1)</label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {UNIT_TYPES.map(unit => (
+              <button
+                key={unit}
+                type="button"
+                onClick={() => toggleUnit(unit as UnitType)}
+                className={`px-3 py-3 rounded-xl border text-sm font-bold transition-all ${
+                  formData.selectedUnits.includes(unit as UnitType)
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
+                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'
+                }`}
+              >
+                {unit}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col space-y-2">
@@ -158,7 +218,7 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         <div className="flex flex-col space-y-2">
           <label className="text-xs md:text-sm font-bold text-slate-500 uppercase">Detail Pekerjaan</label>
           <textarea
-            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none h-28 resize-none"
+            className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl px-4 py-3 outline-none h-24 resize-none"
             placeholder="Lokasi dan jenis pekerjaan..."
             value={formData.details}
             onChange={e => setFormData({...formData, details: e.target.value})}
