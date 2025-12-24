@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Order } from '../types';
 import { UNIT_TYPES, STATUS_COLORS } from '../constants';
 
 const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentTimePos, setCurrentTimePos] = useState<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // WITA is UTC + 8
   const getWitaTime = () => {
@@ -31,9 +32,26 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
     };
 
     updateTimePos();
-    const interval = setInterval(updateTimePos, 30000); // Update every 30 seconds for better precision
+    const interval = setInterval(updateTimePos, 30000);
     return () => clearInterval(interval);
   }, [selectedDate]);
+
+  // Effect to handle auto-scrolling to the indicator
+  useEffect(() => {
+    if (currentTimePos !== null && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const timelineWidth = container.scrollWidth - (window.innerWidth < 768 ? 128 : 192); // Subtract sticky column width
+      const scrollTarget = (currentTimePos / 100) * timelineWidth;
+      
+      // Delay slightly to ensure layout is ready
+      setTimeout(() => {
+        container.scrollTo({
+          left: scrollTarget - 100, // Offset to show bit of previous time
+          behavior: 'smooth'
+        });
+      }, 500);
+    }
+  }, [selectedDate, currentTimePos === null]); // Only trigger when date changes or indicator appears
 
   const hours = Array.from({ length: 25 }, (_, i) => i); // 0 to 24
 
@@ -70,20 +88,18 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       </header>
 
-      <div className="md:hidden flex items-center justify-center space-x-2 py-2 text-slate-500 animate-pulse">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-        </svg>
-        <span className="text-[10px] font-bold uppercase">Geser untuk melihat jadwal</span>
-      </div>
-
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-2xl overflow-hidden relative">
-        <div className="relative overflow-x-auto pb-4 custom-scrollbar">
+        <div 
+          ref={scrollContainerRef}
+          className="relative overflow-x-auto pb-4 custom-scrollbar"
+        >
           <div className="min-w-[900px] md:min-w-[1200px] relative">
             
             {/* Hour Header */}
             <div className="flex border-b border-slate-800/50 pb-4 relative z-10">
-              <div className="w-32 md:w-48 flex-shrink-0 text-slate-500 text-[10px] md:text-sm font-black uppercase tracking-widest">UNIT TYPE</div>
+              <div className="w-32 md:w-48 flex-shrink-0 text-slate-500 text-[10px] md:text-sm font-black uppercase tracking-widest sticky left-0 bg-[#162137] z-50 px-2 py-1 -ml-4 pl-6">
+                UNIT TYPE
+              </div>
               <div className="flex-1 flex relative">
                 {hours.map(h => (
                   <div key={h} className="flex-1 text-center text-[9px] md:text-[10px] text-slate-600 border-l border-slate-800/30 first:border-l-0">
@@ -97,13 +113,11 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
             <div className="relative">
               
               {/* FIXED TIME INDICATOR OVERLAY */}
-              {/* This overlay uses flex to mirror the row structure, ensuring the percentage only applies to the hours area */}
               {currentTimePos !== null && (
                 <div className="absolute inset-0 pointer-events-none z-30 transition-all duration-1000 ease-in-out">
                   <div className="flex h-full">
                     <div className="w-32 md:w-48 shrink-0"></div> {/* Spacer for Unit Column */}
                     <div className="flex-1 relative">
-                      {/* The White Line - Positioned precisely relative to the 24h grid */}
                       <div 
                         className="absolute top-0 bottom-0 w-[1.5px] md:w-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.4)]"
                         style={{ left: `${currentTimePos}%` }}
@@ -120,8 +134,10 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                   const dayOrders = orders.filter(o => o.unit === unit && o.date === selectedDate);
                   return (
                     <div key={unit} className="flex py-4 md:py-6 group hover:bg-slate-800/5 transition-colors">
-                      <div className="w-32 md:w-48 flex-shrink-0 font-bold text-slate-300 text-xs md:text-sm flex items-center">{unit}</div>
-                      <div className="flex-1 relative h-8 md:h-10 bg-slate-800/10 rounded-lg md:rounded-xl border border-slate-800/30">
+                      <div className="w-32 md:w-48 flex-shrink-0 font-bold text-slate-300 text-xs md:text-sm flex items-center sticky left-0 bg-[#162137] z-40 px-2 -ml-4 pl-6 border-r border-slate-800/20 shadow-xl">
+                        {unit}
+                      </div>
+                      <div className="flex-1 relative h-8 md:h-10 bg-slate-800/10 rounded-lg md:rounded-xl border border-slate-800/30 ml-2">
                         
                         {/* Vertical Grid Lines within each row */}
                         {hours.map(h => (

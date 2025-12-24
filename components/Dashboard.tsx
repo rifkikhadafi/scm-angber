@@ -3,14 +3,13 @@ import React from 'react';
 import { Order, OrderStatus } from '../types';
 import { STATUS_COLORS } from '../constants';
 import { supabase } from '../services/supabaseClient';
-import { sendOrderNotification } from '../services/whatsappService';
 
 const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const stats = [
     { label: 'Requested', count: orders.filter(o => o.status === 'Requested').length, color: 'text-blue-400' },
-    { label: 'Progress', count: orders.filter(o => o.status === 'On Progress').length, color: 'text-green-400' },
-    { label: 'Pending', count: orders.filter(o => o.status === 'Pending').length, color: 'text-yellow-400' },
-    { label: 'Closed', count: orders.filter(o => o.status === 'Closed').length, color: 'text-slate-400' }
+    { label: 'Progress', count: orders.filter(o => o.status === 'On Progress').length, color: 'text-yellow-400' },
+    { label: 'Pending', count: orders.filter(o => o.status === 'Pending').length, color: 'text-red-400' },
+    { label: 'Closed', count: orders.filter(o => o.status === 'Closed').length, color: 'text-green-400' }
   ];
 
   const activeJobs = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
@@ -28,8 +27,8 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
       if (error) throw error;
       
-      const updatedOrder = { ...order, status: newStatus };
-      await sendOrderNotification(updatedOrder, 'CHANGE');
+      // Notifikasi WA dihapus sesuai permintaan user: 
+      // "Untuk perubahan status tidak perlu mengirimkan pesan ke WA Group"
     } catch (err) {
       console.error('Failed to update status:', err);
       alert('Gagal memperbarui status.');
@@ -65,14 +64,16 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
             <div key={order.id} className="p-5 flex flex-col space-y-3 bg-slate-800/10">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-blue-400 font-mono text-sm font-bold">{order.id}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-blue-400 font-mono text-sm font-bold">{order.id}</span>
+                  </div>
                   <h4 className="text-white font-bold text-base">{order.unit}</h4>
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">{order.ordererName}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Oleh: {order.ordererName}</p>
                 </div>
                 <select 
                   value={order.status}
                   onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                  className={`bg-transparent px-2 py-1 rounded-full text-[10px] font-black uppercase border outline-none appearance-none cursor-pointer ${STATUS_COLORS[order.status]}`}
+                  className={`bg-slate-800 px-2 py-1 rounded-lg text-[10px] font-black uppercase border outline-none cursor-pointer ${STATUS_COLORS[order.status]}`}
                 >
                   <option value="Requested">Requested</option>
                   <option value="On Progress">On Progress</option>
