@@ -64,6 +64,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const hours = Array.from({ length: 25 }, (_, i) => i);
 
   const getPosition = (startTime: string, endTime: string) => {
+    if (!startTime || !endTime) return { left: '0%', width: '0%' };
     const startH = parseInt(startTime.split(':')[0]);
     const startM = parseInt(startTime.split(':')[1]);
     const endH = parseInt(endTime.split(':')[0]);
@@ -135,17 +136,24 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
               <div className="divide-y divide-slate-200 dark:divide-slate-800 relative">
                 {UNIT_TYPES.map(unit => {
-                  const dayOrders = orders.filter(o => o.unit === unit && o.date === selectedDate);
+                  // Filter: Hanya render jika status BUKAN Pending dan BUKAN Canceled
+                  const dayOrders = orders.filter(o => 
+                    o.unit === unit && 
+                    o.date === selectedDate && 
+                    o.status !== 'Pending' && 
+                    o.status !== 'Canceled'
+                  );
+
                   return (
                     <div key={unit} className="flex group hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-all duration-200 relative">
                       
-                      {/* Sticky Unit Column - Now fully integrated */}
+                      {/* Sticky Unit Column */}
                       <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-white dark:bg-[#0f172a] group-hover:bg-slate-50 dark:group-hover:bg-[#1e293b] z-[50] font-bold text-slate-800 dark:text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-200 dark:border-slate-800 transition-colors">
                         {unit}
                       </div>
 
                       <div className="flex-1 relative h-12 md:h-16 flex items-center z-10 px-0">
-                        {/* Hour Grid Lines inside each row */}
+                        {/* Hour Grid Lines */}
                         <div className="absolute inset-x-0 h-full flex">
                            {hours.map(h => (
                              <div 
@@ -189,7 +197,6 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex flex-wrap gap-4 text-[10px] text-slate-700 dark:text-slate-500 font-black uppercase tracking-widest">
         <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
           <div className="w-3 h-3 bg-blue-600 rounded-sm"></div>
@@ -200,17 +207,10 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <span>Progress</span>
         </div>
         <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="w-3 h-3 bg-red-600 rounded-sm"></div>
-          <span>Pending</span>
-        </div>
-        <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
           <div className="w-3 h-3 bg-green-600 rounded-sm"></div>
           <span>Closed</span>
         </div>
-        <div className="flex items-center space-x-2 ml-auto py-1.5">
-           <div className="w-2 h-2 bg-blue-600 dark:bg-white rounded-full animate-pulse shadow-lg"></div>
-           <span className="text-slate-900 dark:text-white/80 font-black">Realtime Monitor</span>
-        </div>
+        <p className="text-[9px] text-red-500 italic mt-auto">Note: Pesanan berstatus Pending tidak ditampilkan di timeline.</p>
       </div>
     </div>
   );
