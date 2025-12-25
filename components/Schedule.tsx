@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Order } from '../types';
-import { UNIT_TYPES, STATUS_COLORS } from '../constants';
+import { Order, OrderStatus } from '../types';
+import { UNIT_TYPES } from '../constants';
 
 const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const getWitaTime = () => {
@@ -76,12 +76,21 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
     return { left: `${left}%`, width: `${width}%` };
   };
 
+  // Dedicated high-contrast colors for timeline bars to ensure white text is readable
+  const TIMELINE_BAR_COLORS: Record<OrderStatus, string> = {
+    'Requested': 'bg-blue-600 dark:bg-blue-500',
+    'On Progress': 'bg-amber-600 dark:bg-amber-500',
+    'Closed': 'bg-emerald-600 dark:bg-emerald-500',
+    'Pending': 'bg-red-600 dark:bg-red-500',
+    'Canceled': 'bg-slate-600 dark:bg-slate-500'
+  };
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in zoom-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Timeline Unit</h2>
-          <p className="text-sm text-slate-700 dark:text-slate-400">Pantau jadwal operasional harian (WITA).</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Timeline Unit</h2>
+          <p className="text-sm text-slate-700 dark:text-slate-400 font-medium">Pantau jadwal operasional harian (WITA).</p>
         </div>
         <div className="flex items-center space-x-3 bg-white dark:bg-slate-900/40 p-2 md:p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <input
@@ -101,14 +110,14 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <div className="min-w-[1200px] md:min-w-[1600px] relative">
             
             {/* Timeline Header */}
-            <div className="flex border-b border-slate-200 dark:border-slate-800 relative z-[100] bg-slate-50/50 dark:bg-slate-800/30">
-              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-slate-100 dark:bg-[#1e293b] z-[110] text-[10px] font-black uppercase tracking-widest px-4 py-4 border-r border-slate-200 dark:border-slate-800 flex items-center text-slate-600 dark:text-slate-400 transition-colors">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 relative z-[100] bg-slate-100/50 dark:bg-slate-800/30">
+              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-slate-200 dark:bg-[#1e293b] z-[110] text-[10px] font-black uppercase tracking-widest px-4 py-4 border-r border-slate-300 dark:border-slate-800 flex items-center text-slate-700 dark:text-slate-400 transition-colors">
                 UNIT TYPE
               </div>
               
               <div className="flex-1 flex relative">
                 {hours.map(h => (
-                  <div key={h} className="flex-1 text-center text-[10px] text-slate-600 dark:text-slate-500 border-l border-slate-200/50 dark:border-slate-800/30 first:border-l-0 font-bold py-4">
+                  <div key={h} className="flex-1 text-center text-[10px] text-slate-700 dark:text-slate-500 border-l border-slate-300 dark:border-slate-800/30 first:border-l-0 font-bold py-4">
                     {String(h === 24 ? 0 : h).padStart(2, '0')}:00
                   </div>
                 ))}
@@ -136,7 +145,6 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
               <div className="divide-y divide-slate-200 dark:divide-slate-800 relative">
                 {UNIT_TYPES.map(unit => {
-                  // Filter: Hanya render jika status BUKAN Pending dan BUKAN Canceled
                   const dayOrders = orders.filter(o => 
                     o.unit === unit && 
                     o.date === selectedDate && 
@@ -148,7 +156,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                     <div key={unit} className="flex group hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-all duration-200 relative">
                       
                       {/* Sticky Unit Column */}
-                      <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-white dark:bg-[#0f172a] group-hover:bg-slate-50 dark:group-hover:bg-[#1e293b] z-[50] font-bold text-slate-800 dark:text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-200 dark:border-slate-800 transition-colors">
+                      <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-white dark:bg-[#0f172a] group-hover:bg-slate-100 dark:group-hover:bg-[#1e293b] z-[50] font-bold text-slate-900 dark:text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-200 dark:border-slate-800 transition-colors">
                         {unit}
                       </div>
 
@@ -158,7 +166,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                            {hours.map(h => (
                              <div 
                                key={h} 
-                               className="flex-1 border-l border-slate-100 dark:border-slate-800/30 first:border-l-0"
+                               className="flex-1 border-l border-slate-200 dark:border-slate-800/30 first:border-l-0"
                              ></div>
                            ))}
                         </div>
@@ -167,20 +175,19 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                         <div className="relative w-full h-10 md:h-12">
                           {dayOrders.map(order => {
                             const style = getPosition(order.startTime, order.endTime);
-                            const colorParts = STATUS_COLORS[order.status].split(' ');
-                            const bgColorClass = colorParts[0].replace('/20', '/90');
+                            const barBg = TIMELINE_BAR_COLORS[order.status] || 'bg-slate-500';
                             
                             return (
                               <div
                                 key={order.id}
-                                className={`absolute top-0 bottom-0 border border-white/20 rounded-lg flex flex-col justify-center px-2 shadow-sm overflow-hidden cursor-help transition-all hover:scale-[1.02] hover:z-[60] active:scale-95 ${bgColorClass}`}
+                                className={`absolute top-0 bottom-0 border border-white/30 rounded-lg flex flex-col justify-center px-2 shadow-md overflow-hidden cursor-help transition-all hover:scale-[1.02] hover:z-[60] active:scale-95 ${barBg} text-white`}
                                 style={style}
                                 title={`${order.id} [${order.status}]: ${order.details}`}
                               >
-                                <span className="text-[8px] md:text-[10px] font-black truncate text-white drop-shadow-sm">
+                                <span className="text-[9px] md:text-[11px] font-black truncate drop-shadow-md tracking-tight">
                                   {order.id}
                                 </span>
-                                <span className="text-[7px] md:text-[8px] truncate text-white/90 hidden sm:block">
+                                <span className="text-[7px] md:text-[8px] truncate text-white font-bold drop-shadow-sm hidden sm:block">
                                   {order.startTime}-{order.endTime}
                                 </span>
                               </div>
@@ -197,20 +204,20 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 text-[10px] text-slate-700 dark:text-slate-500 font-black uppercase tracking-widest">
+      <div className="flex flex-wrap gap-4 text-[10px] text-slate-800 dark:text-slate-500 font-black uppercase tracking-widest">
         <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
           <div className="w-3 h-3 bg-blue-600 rounded-sm"></div>
           <span>Requested</span>
         </div>
         <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="w-3 h-3 bg-yellow-600 rounded-sm"></div>
+          <div className="w-3 h-3 bg-amber-600 rounded-sm"></div>
           <span>Progress</span>
         </div>
         <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="w-3 h-3 bg-green-600 rounded-sm"></div>
+          <div className="w-3 h-3 bg-emerald-600 rounded-sm"></div>
           <span>Closed</span>
         </div>
-        <p className="text-[9px] text-red-500 italic mt-auto">Note: Pesanan berstatus Pending tidak ditampilkan di timeline.</p>
+        <p className="text-[9px] text-red-600 italic mt-auto">Note: Pesanan berstatus Pending tidak ditampilkan di timeline.</p>
       </div>
     </div>
   );
