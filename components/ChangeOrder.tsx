@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Order, UnitType } from '../types';
 import { UNIT_TYPES } from '../constants';
@@ -5,7 +6,7 @@ import { supabase } from '../services/supabaseClient';
 
 interface ChangeOrderProps {
   orders: Order[];
-  onOrderUpdated: (order: Order) => void;
+  onOrderUpdated: () => void;
 }
 
 const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => {
@@ -14,6 +15,17 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
   const [formData, setFormData] = useState<Order | null>(null);
 
   const availableOrders = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
+
+  const calculatePlanDuration = (start: string | null, end: string | null): string => {
+    if (!start || !end) return '-';
+    const [h1, m1] = start.split(':').map(Number);
+    const [h2, m2] = end.split(':').map(Number);
+    let diffMinutes = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (diffMinutes < 0) diffMinutes += 1440;
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -28,6 +40,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
     setLoading(true);
 
     try {
+      const planDur = calculatePlanDuration(formData.startTime, formData.endTime);
       const { error: dbError } = await supabase
         .from('orders')
         .update({
@@ -36,19 +49,16 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
           date: formData.date,
           start_time: formData.startTime,
           end_time: formData.endTime,
+          duration_plan: planDur,
           details: formData.details
         })
         .eq('id', formData.id);
 
       if (dbError) throw dbError;
-
-      // Catatan: Notifikasi untuk perubahan (CHANGE) dihapus agar hanya notif pekerjaan baru yang terkirim.
-      onOrderUpdated(formData);
+      onOrderUpdated();
       alert('Pesanan berhasil diperbarui.');
     } catch (err: any) {
-      console.error('Update Error:', err);
-      const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
-      alert('Gagal mengupdate: ' + errMsg);
+      alert('Gagal mengupdate: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -56,7 +66,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
 
   const handleCancelOrder = async () => {
     if (!formData) return;
-    if (!window.confirm(`Apakah Anda yakin ingin membatalkan pesanan ${formData.id}? ID ini akan ditandai CANCELED.`)) return;
+    if (!window.confirm(`Batalkan pesanan ${formData.id}?`)) return;
 
     setLoading(true);
     try {
@@ -65,22 +75,14 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
 
       const { error: dbError } = await supabase
         .from('orders')
-        .update({ 
-          status: 'Canceled',
-          id: newCanceledId 
-        })
+        .update({ status: 'Canceled', id: newCanceledId })
         .eq('id', formData.id);
 
       if (dbError) throw dbError;
-
-      const canceledOrder = { ...formData, id: newCanceledId, status: 'Canceled' as const };
-      // Catatan: Notifikasi pembatalan (CANCELED) dihapus sesuai permintaan.
-      onOrderUpdated(canceledOrder);
+      onOrderUpdated();
       alert('Pesanan telah dibatalkan.');
     } catch (err: any) {
-      console.error('Cancel Error:', err);
-      const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
-      alert('Gagal membatalkan: ' + errMsg);
+      alert('Gagal: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -96,15 +98,9 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
       <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-6 md:p-8 rounded-2xl md:rounded-3xl space-y-6 shadow-sm transition-colors duration-300">
         <div className="flex flex-col space-y-2">
           <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Pilih ID Pesanan</label>
-          <select
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base appearance-none cursor-pointer"
-            value={selectedId}
-            onChange={(e) => handleSelect(e.target.value)}
-          >
+          <select className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer" value={selectedId} onChange={(e) => handleSelect(e.target.value)}>
             <option value="">-- Pilih ID Pesanan --</option>
-            {availableOrders.map(o => (
-              <option key={o.id} value={o.id}>{o.id} - {o.unit} ({o.ordererName})</option>
-            ))}
+            {availableOrders.map(o => <option key={o.id} value={o.id}>{o.id} - {o.unit} ({o.ordererName})</option>)}
           </select>
         </div>
 
@@ -113,82 +109,35 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="flex flex-col space-y-2">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Unit</label>
-                <select
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                  value={formData.unit}
-                  onChange={e => setFormData({ ...formData, unit: e.target.value as any })}
-                >
+                <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value as any })}>
                   {UNIT_TYPES.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div className="flex flex-col space-y-2">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Nama Pemesan</label>
-                <input
-                  type="text"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                  value={formData.ordererName}
-                  onChange={e => setFormData({ ...formData, ordererName: e.target.value })}
-                  required
-                />
+                <input type="text" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" value={formData.ordererName} onChange={e => setFormData({ ...formData, ordererName: e.target.value })} required />
               </div>
-            </div>
-
-            <div className="flex flex-col space-y-2">
-              <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Tanggal</label>
-              <input
-                type="date"
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                value={formData.date || ''}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
-              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col space-y-2">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Mulai</label>
-                <input
-                  type="time"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                  value={formData.startTime || ''}
-                  onChange={e => setFormData({ ...formData, startTime: e.target.value })}
-                />
+                <input type="time" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" value={formData.startTime || ''} onChange={e => setFormData({ ...formData, startTime: e.target.value })} />
               </div>
               <div className="flex flex-col space-y-2">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Selesai</label>
-                <input
-                  type="time"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                  value={formData.endTime || ''}
-                  onChange={e => setFormData({ ...formData, endTime: e.target.value })}
-                />
+                <input type="time" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" value={formData.endTime || ''} onChange={e => setFormData({ ...formData, endTime: e.target.value })} />
               </div>
             </div>
 
             <div className="flex flex-col space-y-2">
               <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Detail</label>
-              <textarea
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none h-24 resize-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
-                value={formData.details}
-                onChange={e => setFormData({ ...formData, details: e.target.value })}
-              />
+              <textarea className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none h-24 resize-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" value={formData.details} onChange={e => setFormData({ ...formData, details: e.target.value })} />
             </div>
 
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
-              >
-                {loading ? 'Menyimpan...' : 'Update Data'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelOrder}
-                disabled={loading}
-                className="flex-1 py-4 bg-red-600/10 text-red-600 border border-red-600/20 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
-              >
-                Batalkan Pesanan
-              </button>
+              <button type="submit" disabled={loading} className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50">Update Data</button>
+              <button type="button" onClick={handleCancelOrder} disabled={loading} className="flex-1 py-4 bg-red-600/10 text-red-600 border border-red-600/20 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all disabled:opacity-50">Batalkan Pesanan</button>
             </div>
           </form>
         )}

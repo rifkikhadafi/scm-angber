@@ -41,6 +41,10 @@ const App: React.FC = () => {
     date: data.date,
     startTime: data.start_time,
     endTime: data.end_time,
+    actualStartTime: data.actual_start_time,
+    actualEndTime: data.actual_end_time,
+    durationPlan: data.duration_plan,
+    durationActual: data.duration_actual,
     details: data.details,
     status: data.status,
     createdAt: data.created_at
@@ -63,11 +67,9 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Ambil data awal
     fetchOrders();
 
-    // Setup Realtime Subscription
-    // Pastikan channel unik untuk menghindari konflik session
+    // Supabase Realtime Subscription
     const subscription = supabase
       .channel('public:orders:realtime')
       .on(
@@ -77,15 +79,11 @@ const App: React.FC = () => {
           schema: 'public', 
           table: 'orders' 
         }, 
-        (payload) => {
-          console.log('Realtime change detected:', payload.eventType);
-          // Selalu fetch data terbaru untuk memastikan UI sinkron dengan database
+        () => {
           fetchOrders();
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime connection status:', status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
@@ -103,7 +101,6 @@ const App: React.FC = () => {
     <button
       onClick={() => setIsDark(!isDark)}
       className="p-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all shadow-sm"
-      aria-label="Toggle Theme"
     >
       {isDark ? (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,7 +116,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-200 font-sans transition-colors duration-300">
-      {/* Desktop Sidebar */}
       <aside className="w-64 bg-slate-100 dark:bg-[#1e293b]/50 border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex h-screen sticky top-0">
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 text-center">
           <h1 className="text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
@@ -146,7 +142,6 @@ const App: React.FC = () => {
         </nav>
       </aside>
 
-      {/* Mobile Header */}
       <header className="md:hidden py-3 px-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-[#1e293b]/50 sticky top-0 z-50 flex justify-between items-center backdrop-blur-lg">
         <h1 className="text-base font-black bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight">
           SCM ANGBER
@@ -154,22 +149,14 @@ const App: React.FC = () => {
         <ThemeToggle />
       </header>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="hidden md:flex items-center justify-end px-8 py-3 bg-white/40 dark:bg-[#0f172a]/40 border-b border-slate-200 dark:border-slate-800 backdrop-blur-sm shrink-0">
           <div className="flex items-center space-x-4">
-             <div className="flex items-center space-x-2 mr-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">System Online</span>
-             </div>
              <ThemeToggle />
           </div>
         </header>
 
-        <main 
-          ref={mainRef}
-          className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8"
-        >
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
           <div className="max-w-6xl mx-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -179,18 +166,8 @@ const App: React.FC = () => {
             ) : (
               <>
                 {view === 'dashboard' && <Dashboard orders={orders} />}
-                {view === 'new' && (
-                  <NewOrder 
-                    orders={orders} 
-                    onOrderCreated={() => setView('dashboard')} 
-                  />
-                )}
-                {view === 'change' && (
-                  <ChangeOrder 
-                    orders={orders} 
-                    onOrderUpdated={() => setView('dashboard')} 
-                  />
-                )}
+                {view === 'new' && <NewOrder orders={orders} onOrderCreated={() => setView('dashboard')} />}
+                {view === 'change' && <ChangeOrder orders={orders} onOrderUpdated={() => setView('dashboard')} />}
                 {view === 'schedule' && <Schedule orders={orders} />}
               </>
             )}
@@ -198,7 +175,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1e293b]/95 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center px-1 py-1.5 pb-4 z-50 backdrop-blur-md">
         {menuItems.map(item => (
           <button

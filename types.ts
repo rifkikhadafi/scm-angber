@@ -10,6 +10,10 @@ export interface Order {
   date: string | null;
   startTime: string | null;
   endTime: string | null;
+  actualStartTime: string | null;
+  actualEndTime: string | null;
+  durationPlan: string | null;
+  durationActual: string | null;
   details: string;
   status: OrderStatus;
   createdAt: string;
