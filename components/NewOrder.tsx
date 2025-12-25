@@ -46,7 +46,7 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
       if (
         existing.unit === unit && 
         existing.date === formData.date && 
-        !['Closed', 'Canceled'].includes(existing.status)
+        !['Closed', 'Canceled', 'Pending'].includes(existing.status)
       ) {
         const existingStart = timeToMinutes(existing.startTime);
         const existingEnd = timeToMinutes(existing.endTime);
@@ -83,26 +83,23 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
     setLoading(true);
 
     try {
-      // Mengambil ID terakhir untuk menentukan urutan berikutnya secara akurat
-      const { data: latestOrders, error: fetchError } = await supabase
+      // Get all orders that start with REQ- to find the absolute max number
+      const { data: allReqs, error: fetchError } = await supabase
         .from('orders')
         .select('id')
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .like('id', 'REQ-%');
 
       if (fetchError) throw fetchError;
       
       let nextIdNumber = 1;
-      if (latestOrders && latestOrders.length > 0) {
-        const lastId = latestOrders[0].id;
-        const lastNum = parseInt(lastId.replace('REQ-', ''));
-        if (!isNaN(lastNum)) {
-          nextIdNumber = lastNum + 1;
+      if (allReqs && allReqs.length > 0) {
+        const numbers = allReqs.map(o => parseInt(o.id.replace('REQ-', ''))).filter(n => !isNaN(n));
+        if (numbers.length > 0) {
+          nextIdNumber = Math.max(...numbers) + 1;
         }
       }
 
       for (const unit of formData.selectedUnits) {
-        // Format ID tanpa padding nol (REQ-1, REQ-10, REQ-100, dst)
         const idString = `REQ-${nextIdNumber}`;
         
         const newOrderData = {

@@ -23,6 +23,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   };
 
   const displayedJobs = useMemo(() => {
+    // We filter based on status. IDs starting with CANCELED- or PENDING- are still in the list unless filtered by status.
     const active = orders.filter(o => o.status !== 'Canceled');
     if (!filterStatus) return active;
     return active.filter(o => o.status === filterStatus);
@@ -54,8 +55,11 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     try {
       let updateData: any = { status: newStatus };
       
-      // Jika diubah ke Pending, kosongkan tanggal dan waktu
-      if (newStatus === 'Pending') {
+      // Update ID based on status
+      if (newStatus === 'Canceled') {
+        updateData.id = `CANCELED-${order.id}`;
+      } else if (newStatus === 'Pending') {
+        updateData.id = `PENDING-${order.id}`;
         updateData.date = '';
         updateData.start_time = '';
         updateData.end_time = '';
@@ -69,11 +73,11 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
       if (error) throw error;
 
       if (newStatus === 'Canceled') {
-        await sendOrderNotification({ ...order, status: 'Canceled' }, 'DELETE');
+        await sendOrderNotification({ ...order, id: updateData.id, status: 'Canceled' }, 'DELETE');
       }
     } catch (err) {
       console.error('Update status error:', err);
-      alert('Gagal memperbarui status.');
+      alert('Gagal memperbarui status. Periksa apakah ID baru tidak duplikat.');
     }
   };
 
@@ -86,21 +90,40 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
     setIsSubmitting(true);
     try {
+      // Find latest REQ- ID to generate a NEW sequence number
+      const { data: allReqs, error: fetchError } = await supabase
+        .from('orders')
+        .select('id')
+        .like('id', 'REQ-%');
+
+      if (fetchError) throw fetchError;
+
+      let nextIdNumber = 1;
+      if (allReqs && allReqs.length > 0) {
+        const numbers = allReqs.map(o => parseInt(o.id.replace('REQ-', ''))).filter(n => !isNaN(n));
+        if (numbers.length > 0) {
+          nextIdNumber = Math.max(...numbers) + 1;
+        }
+      }
+
+      const newIdString = `REQ-${nextIdNumber}`;
+
       const { error } = await supabase
         .from('orders')
         .update({
+          id: newIdString, // NEW ID AS REQUESTED
           status: 'Requested',
           date: rescheduleData.date,
           start_time: rescheduleData.start,
           end_time: rescheduleData.end
         })
-        .eq('id', rescheduleOrder.id);
+        .eq('id', rescheduleOrder.id); // Identifying by the old PENDING-REQ-X ID
 
       if (error) throw error;
 
-      // Kirim notifikasi sebagai pesanan baru karena jadwal berubah total
       const updatedOrder = { 
         ...rescheduleOrder, 
+        id: newIdString,
         status: 'Requested' as OrderStatus,
         date: rescheduleData.date,
         startTime: rescheduleData.start,
@@ -110,6 +133,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
       
       setRescheduleOrder(null);
     } catch (err) {
+      console.error('Reschedule error:', err);
       alert('Gagal mengatur ulang jadwal.');
     } finally {
       setIsSubmitting(false);
@@ -165,7 +189,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {displayedJobs.map(order => (
                 <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                  <td className="px-6 py-4 font-mono text-blue-700 dark:text-blue-400 font-bold">{order.id}</td>
+                  <td className="px-6 py-4 font-mono text-blue-700 dark:text-blue-400 font-bold max-w-[150px] truncate" title={order.id}>{order.id}</td>
                   <td className="px-6 py-4">
                     <div className="text-slate-900 dark:text-white font-bold">{order.unit}</div>
                     <div className="text-[10px] text-slate-500 uppercase font-bold">{order.ordererName}</div>
@@ -189,16 +213,16 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                       {order.status === 'Pending' ? (
                         <>
                           <option value="Pending">Pending (Hold)</option>
-                          <option value="Requested">Requested (Reschedule)</option>
-                          <option value="Canceled">Canceled (Delete)</option>
+                          <option value="Requested">Requested (New ID)</option>
+                          <option value="Canceled">Canceled (Rename ID)</option>
                         </>
                       ) : (
                         <>
                           <option value="Requested">Requested</option>
                           <option value="On Progress">On Progress</option>
-                          <option value="Pending">Pending (Hold All)</option>
+                          <option value="Pending">Pending (Hold & Rename)</option>
                           <option value="Closed">Closed</option>
-                          <option value="Canceled">Canceled</option>
+                          <option value="Canceled">Canceled (Rename ID)</option>
                         </>
                       )}
                     </select>
@@ -214,7 +238,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
               <div key={order.id} className="p-5 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-blue-600 dark:text-blue-400 font-mono text-sm font-bold">{order.id}</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-mono text-[10px] font-bold block mb-1">{order.id}</span>
                     <h4 className="text-slate-900 dark:text-white font-bold text-base">{order.unit}</h4>
                   </div>
                   <select 
@@ -254,7 +278,8 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
             <header>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Reschedule Pesanan</h3>
-              <p className="text-sm text-slate-500">ID: <span className="font-mono font-bold text-blue-600">{rescheduleOrder.id}</span> - {rescheduleOrder.unit}</p>
+              <p className="text-sm text-slate-500">ID Saat Ini: <span className="font-mono font-bold text-blue-600">{rescheduleOrder.id}</span></p>
+              <p className="text-[10px] text-amber-600 font-bold uppercase mt-1">Sistem akan membuat ID REQ baru setelah disimpan.</p>
             </header>
 
             <div className="space-y-4">
@@ -302,7 +327,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 disabled={isSubmitting}
                 className="flex-2 px-8 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50"
               >
-                {isSubmitting ? 'Proses...' : 'Update & Kirim WA'}
+                {isSubmitting ? 'Proses...' : 'Update & ID Baru'}
               </button>
             </div>
           </div>
