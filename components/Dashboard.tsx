@@ -1,18 +1,36 @@
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Order, OrderStatus } from '../types';
 import { STATUS_COLORS } from '../constants';
 import { supabase } from '../services/supabaseClient';
 
 const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
+  const [filterStatus, setFilterStatus] = useState<OrderStatus | null>(null);
+
   const stats = [
-    { label: 'Requested', count: orders.filter(o => o.status === 'Requested').length, color: 'text-blue-400' },
-    { label: 'Progress', count: orders.filter(o => o.status === 'On Progress').length, color: 'text-yellow-400' },
-    { label: 'Pending', count: orders.filter(o => o.status === 'Pending').length, color: 'text-red-400' },
-    { label: 'Closed', count: orders.filter(o => o.status === 'Closed').length, color: 'text-green-400' }
+    { status: 'Requested' as OrderStatus, label: 'Requested', color: 'text-blue-400', glow: 'shadow-blue-500/20', border: 'border-blue-500/50' },
+    { status: 'On Progress' as OrderStatus, label: 'Progress', color: 'text-yellow-400', glow: 'shadow-yellow-500/20', border: 'border-yellow-500/50' },
+    { status: 'Pending' as OrderStatus, label: 'Pending', color: 'text-red-400', glow: 'shadow-red-500/20', border: 'border-red-500/50' },
+    { status: 'Closed' as OrderStatus, label: 'Closed', color: 'text-green-400', glow: 'shadow-green-500/20', border: 'border-green-500/50' }
   ];
 
-  const activeJobs = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
+  const handleFilterToggle = (status: OrderStatus) => {
+    if (filterStatus === status) {
+      setFilterStatus(null); // Reset filter jika diklik lagi
+    } else {
+      setFilterStatus(status);
+    }
+  };
+
+  // Logika pemfilteran: 
+  // Jika tidak ada filter, tampilkan semua kecuali Canceled.
+  // Jika ada filter, tampilkan tepat status tersebut.
+  const displayedJobs = useMemo(() => {
+    if (!filterStatus) {
+      return orders.filter(o => o.status !== 'Canceled');
+    }
+    return orders.filter(o => o.status === filterStatus);
+  }, [orders, filterStatus]);
 
   const formatDate = (dateStr: string) => {
     return dateStr.split('-').reverse().join('-');
@@ -36,28 +54,65 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <header>
         <h2 className="text-2xl md:text-3xl font-bold text-white">Work Monitoring</h2>
-        <p className="text-sm text-slate-400">Silahkan cek status pesanan anda.</p>
+        <p className="text-sm text-slate-400">Klik pada kartu status untuk memfilter data tabel.</p>
       </header>
 
+      {/* Stats Cards as Interactive Filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        {stats.map(stat => (
-          <div key={stat.label} className="bg-slate-900/40 border border-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-            <p className={`text-2xl md:text-4xl font-black mt-1 md:mt-2 ${stat.color}`}>{stat.count}</p>
-          </div>
-        ))}
+        {stats.map(stat => {
+          const count = orders.filter(o => o.status === stat.status).length;
+          const isActive = filterStatus === stat.status;
+          
+          return (
+            <button
+              key={stat.label}
+              onClick={() => handleFilterToggle(stat.status)}
+              className={`text-left transition-all duration-300 transform hover:scale-[1.02] active:scale-95 bg-slate-900/40 border p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden group ${
+                isActive 
+                  ? `${stat.border} ${stat.glow} bg-slate-800/60 shadow-lg ring-1 ring-white/10` 
+                  : 'border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              {isActive && (
+                <div className="absolute top-0 right-0 p-2">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${stat.color.replace('text', 'bg')}`}></div>
+                </div>
+              )}
+              <p className={`text-xs font-bold uppercase tracking-widest transition-colors ${isActive ? 'text-white' : 'text-slate-500'}`}>
+                {stat.label}
+              </p>
+              <p className={`text-2xl md:text-4xl font-black mt-1 md:mt-2 transition-all ${stat.color} ${isActive ? 'scale-110 origin-left' : ''}`}>
+                {count}
+              </p>
+              <div className={`absolute bottom-0 left-0 h-1 transition-all duration-500 ${isActive ? 'w-full' : 'w-0'} ${stat.color.replace('text', 'bg')}`}></div>
+            </button>
+          );
+        })}
       </div>
 
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl md:rounded-3xl overflow-hidden shadow-xl">
-        <div className="p-5 md:p-6 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white">Detail Pekerjaan Aktif</h3>
+        <div className="p-5 md:p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
+          <div className="flex items-center space-x-3">
+            <h3 className="text-lg font-bold text-white">
+              {filterStatus ? `Detail Pesanan: ${filterStatus}` : 'Semua Pekerjaan Aktif'}
+            </h3>
+            {filterStatus && (
+              <button 
+                onClick={() => setFilterStatus(null)}
+                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-400 px-2 py-1 rounded-md font-bold uppercase transition-colors"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
           <span className="text-xs text-slate-500 font-bold bg-slate-800 px-2 py-1 rounded-lg">
-            {activeJobs.length} Aktif
+            {displayedJobs.length} Data
           </span>
         </div>
 
+        {/* Mobile View */}
         <div className="md:hidden divide-y divide-slate-800/50">
-          {activeJobs.length > 0 ? activeJobs.map(order => (
+          {displayedJobs.length > 0 ? displayedJobs.map(order => (
             <div key={order.id} className="p-5 flex flex-col space-y-3 bg-slate-800/10">
               <div className="flex justify-between items-start">
                 <div>
@@ -86,17 +141,18 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 <span>{formatDate(order.date)} • {order.startTime} - {order.endTime} WITA</span>
               </div>
 
-              <div className="p-3 bg-slate-800/50 rounded-xl text-xs text-slate-300 leading-relaxed italic">
+              <div className="p-3 bg-slate-800/50 rounded-xl text-xs text-slate-300 leading-relaxed italic border border-slate-700/30">
                 "{order.details}"
               </div>
             </div>
           )) : (
             <div className="p-10 text-center text-slate-500 text-sm">
-              Belum ada pekerjaan aktif.
+              Tidak ada data ditemukan untuk status ini.
             </div>
           )}
         </div>
 
+        {/* Desktop View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -109,7 +165,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50 text-sm">
-              {activeJobs.map(order => (
+              {displayedJobs.length > 0 ? displayedJobs.map(order => (
                 <tr key={order.id} className="hover:bg-slate-800/20 transition-colors">
                   <td className="px-6 py-4 font-mono text-blue-400 font-bold">{order.id}</td>
                   <td className="px-6 py-4 text-slate-300 font-medium">{order.ordererName}</td>
@@ -131,7 +187,13 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                     </select>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    Tidak ada data ditemukan untuk status ini.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

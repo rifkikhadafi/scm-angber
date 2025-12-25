@@ -100,8 +100,8 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <div className="min-w-[1200px] md:min-w-[1600px] relative">
             
             {/* Header Jam */}
-            <div className="flex border-b border-slate-800/50 pb-4 relative z-50">
-              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-[60] text-xs font-black uppercase tracking-widest px-4 py-1 border-r border-slate-800/50 flex items-center shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)] text-slate-500">
+            <div className="flex border-b border-slate-800/50 pb-4 relative z-[100]">
+              <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-[110] text-xs font-black uppercase tracking-widest px-4 py-1 border-r border-slate-800/50 flex items-center shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)] text-slate-500">
                 UNIT TYPE
               </div>
               
@@ -115,6 +115,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
             </div>
 
             <div className="relative">
+              {/* Garis Waktu Sekarang - Turunkan Z-Index agar di bawah sticky column */}
               {currentTimePos !== null && (
                 <div className="absolute inset-0 pointer-events-none z-30">
                   <div className="flex h-full">
@@ -135,12 +136,15 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 {UNIT_TYPES.map(unit => {
                   const dayOrders = orders.filter(o => o.unit === unit && o.date === selectedDate);
                   return (
-                    <div key={unit} className="flex group hover:bg-slate-800/10 transition-colors relative z-20">
-                      <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-40 font-bold text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-800/50 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)]">
+                    <div key={unit} className="flex group hover:bg-slate-800/10 transition-colors relative">
+                      
+                      {/* Unit Column (Sticky) - Z-Index Tinggi agar menutupi konten saat discroll */}
+                      <div className="w-28 md:w-40 shrink-0 sticky left-0 bg-[#0f172a] z-[50] font-bold text-slate-300 text-xs md:text-sm flex items-center px-4 py-6 border-r border-slate-800/50 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.5)]">
                         {unit}
                       </div>
 
-                      <div className="flex-1 relative h-12 md:h-16 flex items-center">
+                      {/* Timeline Area (Scrollable Content) - Z-Index Rendah */}
+                      <div className="flex-1 relative h-12 md:h-16 flex items-center z-10">
                         <div className="absolute inset-x-0 h-10 md:h-12 bg-slate-800/5 rounded-xl border border-slate-800/20">
                           {hours.map(h => (
                             <div 
@@ -158,7 +162,7 @@ const Schedule: React.FC<{ orders: Order[] }> = ({ orders }) => {
                             return (
                               <div
                                 key={order.id}
-                                className={`absolute top-1 bottom-1 border border-white/20 rounded-lg flex flex-col justify-center px-2 shadow-lg overflow-hidden cursor-help transition-all hover:scale-[1.02] hover:z-50 active:scale-95 ${bgColorClass}`}
+                                className={`absolute top-1 bottom-1 border border-white/20 rounded-lg flex flex-col justify-center px-2 shadow-lg overflow-hidden cursor-help transition-all hover:scale-[1.02] hover:z-[60] active:scale-95 ${bgColorClass}`}
                                 style={style}
                                 title={`${order.id} [${order.status}]: ${order.details}`}
                               >
