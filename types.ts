@@ -6,10 +6,10 @@ export type OrderStatus = 'Requested' | 'On Progress' | 'Pending' | 'Closed' | '
 export interface Order {
   id: string;
   unit: UnitType;
-  ordererName: string; // Tambahan: Nama Pemesan
-  date: string;
-  startTime: string;
-  endTime: string;
+  ordererName: string;
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
   details: string;
   status: OrderStatus;
   createdAt: string;

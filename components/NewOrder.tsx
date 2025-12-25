@@ -48,8 +48,8 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
         existing.date === formData.date && 
         !['Closed', 'Canceled', 'Pending'].includes(existing.status)
       ) {
-        const existingStart = timeToMinutes(existing.startTime);
-        const existingEnd = timeToMinutes(existing.endTime);
+        const existingStart = timeToMinutes(existing.startTime || '00:00');
+        const existingEnd = timeToMinutes(existing.endTime || '00:00');
         return newStart < existingEnd && existingStart < newEnd;
       }
       return false;
@@ -83,17 +83,20 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
     setLoading(true);
 
     try {
-      // Get all orders that start with REQ- to find the absolute max number
-      const { data: allReqs, error: fetchError } = await supabase
+      // Find the HIGHEST numeric sequence across ALL records to ensure true uniqueness
+      const { data: allOrders, error: fetchError } = await supabase
         .from('orders')
-        .select('id')
-        .like('id', 'REQ-%');
+        .select('id');
 
       if (fetchError) throw fetchError;
       
       let nextIdNumber = 1;
-      if (allReqs && allReqs.length > 0) {
-        const numbers = allReqs.map(o => parseInt(o.id.replace('REQ-', ''))).filter(n => !isNaN(n));
+      if (allOrders && allOrders.length > 0) {
+        const numbers = allOrders.map(o => {
+          const match = o.id.match(/REQ-(\d+)/);
+          return match ? parseInt(match[1]) : 0;
+        }).filter(n => !isNaN(n));
+        
         if (numbers.length > 0) {
           nextIdNumber = Math.max(...numbers) + 1;
         }
@@ -106,9 +109,9 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
           id: idString,
           unit: unit,
           orderer_name: formData.ordererName,
-          date: formData.date,
-          start_time: formData.startTime,
-          end_time: formData.endTime,
+          date: formData.date || null,
+          start_time: formData.startTime || null,
+          end_time: formData.endTime || null,
           details: formData.details,
           status: 'Requested'
         };
@@ -135,7 +138,8 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
       onOrderCreated({} as Order);
     } catch (err: any) {
       console.error('Submit Error:', err);
-      setError("Gagal menyimpan pesanan: " + (err.message || "Koneksi bermasalah"));
+      const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      setError("Gagal menyimpan pesanan: " + errMsg);
     } finally {
       setLoading(false);
     }

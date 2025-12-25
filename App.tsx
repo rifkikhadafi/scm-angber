@@ -63,13 +63,30 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Ambil data awal
     fetchOrders();
+
+    // Setup Realtime Subscription
+    // Pastikan channel unik untuk menghindari konflik session
     const subscription = supabase
-      .channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders(); 
-      })
-      .subscribe();
+      .channel('public:orders:realtime')
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders' 
+        }, 
+        (payload) => {
+          console.log('Realtime change detected:', payload.eventType);
+          // Selalu fetch data terbaru untuk memastikan UI sinkron dengan database
+          fetchOrders();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime connection status:', status);
+      });
+
     return () => {
       supabase.removeChannel(subscription);
     };
@@ -104,8 +121,8 @@ const App: React.FC = () => {
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-200 font-sans transition-colors duration-300">
       {/* Desktop Sidebar */}
       <aside className="w-64 bg-slate-100 dark:bg-[#1e293b]/50 border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex h-screen sticky top-0">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800">
-          <h1 className="text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent text-center">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800 text-center">
+          <h1 className="text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
             SCM ANGBER
           </h1>
         </div>
@@ -137,7 +154,7 @@ const App: React.FC = () => {
         <ThemeToggle />
       </header>
 
-      {/* Desktop Top Header Bar */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="hidden md:flex items-center justify-end px-8 py-3 bg-white/40 dark:bg-[#0f172a]/40 border-b border-slate-200 dark:border-slate-800 backdrop-blur-sm shrink-0">
           <div className="flex items-center space-x-4">
@@ -151,7 +168,7 @@ const App: React.FC = () => {
 
         <main 
           ref={mainRef}
-          className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8"
+          className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8"
         >
           <div className="max-w-6xl mx-auto">
             {loading ? (
@@ -181,13 +198,13 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1e293b]/95 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center px-1 py-1.5 pb-3.5 z-50 backdrop-blur-md">
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1e293b]/95 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center px-1 py-1.5 pb-4 z-50 backdrop-blur-md">
         {menuItems.map(item => (
           <button
             key={item.id}
             onClick={() => setView(item.id as ViewType)}
-            className={`flex flex-col items-center justify-center space-y-0.5 px-3 py-1 transition-colors ${
+            className={`flex flex-col items-center justify-center space-y-1 px-3 py-1 transition-colors ${
               view === item.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-500'
             }`}
           >

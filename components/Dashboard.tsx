@@ -23,25 +23,29 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   };
 
   const displayedJobs = useMemo(() => {
-    // We filter based on status. IDs starting with CANCELED- or PENDING- are still in the list unless filtered by status.
     const active = orders.filter(o => o.status !== 'Canceled');
     if (!filterStatus) return active;
     return active.filter(o => o.status === filterStatus);
   }, [orders, filterStatus]);
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === '') return '--/--/----';
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr || dateStr.trim() === '') return '--/--/----';
     return dateStr.split('-').reverse().join('-');
   };
   
-  const formatTime = (timeStr: string) => {
-    if (!timeStr || timeStr === '') return '--.--';
+  const formatTime = (timeStr: string | null) => {
+    if (!timeStr || timeStr.trim() === '') return '--.--';
     const parts = timeStr.split(':');
     return `${parts[0]}.${parts[1]}`;
   };
 
+  const getBaseId = (id: string) => {
+    return id.replace(/^(PENDING-|CANCELED-)+/g, '');
+  };
+
   const handleStatusChange = async (order: Order, newStatus: OrderStatus) => {
-    // Jika dari Pending mau ke Requested, buka modal reschedule
+    if (order.status === newStatus) return;
+
     if (order.status === 'Pending' && newStatus === 'Requested') {
       setRescheduleOrder(order);
       setRescheduleData({ 
@@ -53,16 +57,22 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     }
 
     try {
+      const baseId = getBaseId(order.id);
       let updateData: any = { status: newStatus };
       
-      // Update ID based on status
       if (newStatus === 'Canceled') {
-        updateData.id = `CANCELED-${order.id}`;
+        updateData.id = `CANCELED-${baseId}`;
       } else if (newStatus === 'Pending') {
-        updateData.id = `PENDING-${order.id}`;
-        updateData.date = '';
-        updateData.start_time = '';
-        updateData.end_time = '';
+        updateData.id = `PENDING-${baseId}`;
+        updateData.date = null;
+        updateData.start_time = null;
+        updateData.end_time = null;
+      } else {
+        updateData.id = baseId;
+      }
+
+      if (updateData.id === order.id) {
+        delete updateData.id;
       }
 
       const { error } = await supabase
@@ -72,12 +82,16 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
       if (error) throw error;
 
-      if (newStatus === 'Canceled') {
-        await sendOrderNotification({ ...order, id: updateData.id, status: 'Canceled' }, 'DELETE');
-      }
-    } catch (err) {
+      // Catatan: Notifikasi untuk status 'Canceled' dihapus atas permintaan pengguna.
+    } catch (err: any) {
       console.error('Update status error:', err);
-      alert('Gagal memperbarui status. Periksa apakah ID baru tidak duplikat.');
+      const errMsg = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      
+      if (err.code === '23505') {
+        alert('Gagal: ID duplikat. Data dengan ID tersebut sudah ada.');
+      } else {
+        alert('Database Error: ' + errMsg);
+      }
     }
   };
 
@@ -90,17 +104,19 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
 
     setIsSubmitting(true);
     try {
-      // Find latest REQ- ID to generate a NEW sequence number
-      const { data: allReqs, error: fetchError } = await supabase
+      const { data: allOrders, error: fetchError } = await supabase
         .from('orders')
-        .select('id')
-        .like('id', 'REQ-%');
+        .select('id');
 
       if (fetchError) throw fetchError;
 
       let nextIdNumber = 1;
-      if (allReqs && allReqs.length > 0) {
-        const numbers = allReqs.map(o => parseInt(o.id.replace('REQ-', ''))).filter(n => !isNaN(n));
+      if (allOrders && allOrders.length > 0) {
+        const numbers = allOrders.map(o => {
+          const match = o.id.match(/REQ-(\d+)$/);
+          return match ? parseInt(match[1]) : 0;
+        }).filter(n => !isNaN(n));
+        
         if (numbers.length > 0) {
           nextIdNumber = Math.max(...numbers) + 1;
         }
@@ -111,13 +127,13 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
       const { error } = await supabase
         .from('orders')
         .update({
-          id: newIdString, // NEW ID AS REQUESTED
+          id: newIdString, 
           status: 'Requested',
           date: rescheduleData.date,
           start_time: rescheduleData.start,
           end_time: rescheduleData.end
         })
-        .eq('id', rescheduleOrder.id); // Identifying by the old PENDING-REQ-X ID
+        .eq('id', rescheduleOrder.id); 
 
       if (error) throw error;
 
@@ -129,12 +145,14 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         startTime: rescheduleData.start,
         endTime: rescheduleData.end
       };
+      // Reschedule dianggap sebagai pekerjaan baru, jadi tetap kirim notifikasi.
       await sendOrderNotification(updatedOrder, 'NEW');
       
       setRescheduleOrder(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Reschedule error:', err);
-      alert('Gagal mengatur ulang jadwal.');
+      const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      alert('Gagal Reschedule: ' + errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -210,21 +228,11 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                       onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
                       className={`bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold outline-none cursor-pointer ${STATUS_COLORS[order.status].split(' ')[1]}`}
                     >
-                      {order.status === 'Pending' ? (
-                        <>
-                          <option value="Pending">Pending (Hold)</option>
-                          <option value="Requested">Requested (New ID)</option>
-                          <option value="Canceled">Canceled (Rename ID)</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="Requested">Requested</option>
-                          <option value="On Progress">On Progress</option>
-                          <option value="Pending">Pending (Hold & Rename)</option>
-                          <option value="Closed">Closed</option>
-                          <option value="Canceled">Canceled (Rename ID)</option>
-                        </>
-                      )}
+                      <option value="Requested">Requested</option>
+                      <option value="On Progress">On Progress</option>
+                      <option value="Pending">Pending (Hold & Rename)</option>
+                      <option value="Closed">Closed</option>
+                      <option value="Canceled">Canceled (Rename ID)</option>
                     </select>
                   </td>
                 </tr>
@@ -232,7 +240,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
             </tbody>
           </table>
 
-          {/* Mobile view */}
           <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/50">
             {displayedJobs.map(order => (
               <div key={order.id} className="p-5 space-y-3">
@@ -246,21 +253,11 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                     onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
                     className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase border outline-none cursor-pointer bg-slate-50 dark:bg-slate-800 ${STATUS_COLORS[order.status]}`}
                   >
-                     {order.status === 'Pending' ? (
-                        <>
-                          <option value="Pending">Pending</option>
-                          <option value="Requested">Requested</option>
-                          <option value="Canceled">Canceled</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="Requested">Requested</option>
-                          <option value="On Progress">On Progress</option>
-                          <option value="Pending">Pending</option>
-                          <option value="Closed">Closed</option>
-                          <option value="Canceled">Canceled</option>
-                        </>
-                      )}
+                    <option value="Requested">Requested</option>
+                    <option value="On Progress">On Progress</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Canceled">Canceled</option>
                   </select>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-400">
@@ -272,7 +269,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       </div>
 
-      {/* Reschedule Modal */}
       {rescheduleOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
