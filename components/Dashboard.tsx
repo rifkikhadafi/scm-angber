@@ -25,7 +25,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const displayedJobs = useMemo(() => {
     // Jika tidak ada filter yang dipilih
     if (!filterStatus) {
-      // Sembunyikan 'Canceled' (selalu) dan 'Closed' (secara default)
+      // Sembunyikan 'Canceled' (selalu) dan 'Closed' (secara default) di tampilan UI
       return orders.filter(o => o.status !== 'Canceled' && o.status !== 'Closed');
     }
     // Jika filter dipilih (termasuk jika mengklik 'Closed'), tampilkan hanya status tersebut
@@ -76,7 +76,12 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const getBaseId = (id: string) => id.replace(/^(PENDING-|CANCELED-)+/g, '');
 
   const handleExportExcel = () => {
-    const dataToExport = displayedJobs.map(order => ({
+    // Logika pemilihan data: Jika filter aktif, ekspor sesuai filter. Jika tidak, ekspor semua kecuali Canceled.
+    const ordersToExport = filterStatus 
+      ? orders.filter(o => o.status === filterStatus)
+      : orders.filter(o => o.status !== 'Canceled');
+
+    const dataToExport = ordersToExport.map(order => ({
       'ID Pesanan': order.id,
       'Unit': order.unit,
       'Pemesan': order.ordererName,
@@ -94,7 +99,12 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pesanan");
-    XLSX.writeFile(workbook, `Laporan_SCM_Angber_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    const fileName = filterStatus 
+      ? `Laporan_SCM_${filterStatus}_${new Date().toISOString().split('T')[0]}.xlsx`
+      : `Database_Full_SCM_Angber_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
   };
 
   const handleStatusChange = async (order: Order, newStatus: OrderStatus) => {
@@ -180,7 +190,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <span>Export Excel</span>
+          <span>Export {filterStatus || 'All Database'}</span>
         </button>
       </header>
 

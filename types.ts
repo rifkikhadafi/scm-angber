@@ -24,7 +24,7 @@ export interface FonnteResponse {
   reason?: string;
 }
 
-export type ViewType = 'dashboard' | 'new' | 'change' | 'schedule';
+export type ViewType = 'dashboard' | 'new' | 'change' | 'schedule' | 'guide';
 
 export interface RegistrationData {
   fullName: string;
