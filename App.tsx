@@ -18,6 +18,29 @@ const App: React.FC = () => {
   });
   const mainRef = useRef<HTMLElement>(null);
 
+  // Hidden Reset Logic for Public Launch
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('confirm_launch_wipe') === 'true') {
+      const confirmed = window.confirm(
+        "PERINGATAN: Hapus seluruh data pesanan untuk persiapan Public Launch?\n\nSemua data akan hilang permanen dan ID akan dimulai kembali dari REQ-1."
+      );
+      if (confirmed) {
+        setLoading(true);
+        // Menghapus semua baris di tabel 'orders'
+        supabase.from('orders').delete().neq('id', '0').then(({ error }) => {
+          if (error) {
+            alert("Gagal membersihkan data: " + error.message);
+            setLoading(false);
+          } else {
+            alert("Database berhasil dibersihkan. Aplikasi akan dimuat ulang.");
+            window.location.href = window.location.pathname; // Kembali ke URL bersih
+          }
+        });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');

@@ -106,7 +106,7 @@ const ManualGuide: React.FC = () => {
 
             <div className="w-full lg:w-72 p-6 bg-slate-900 rounded-2xl sm:rounded-[1.5rem] text-white space-y-4 shadow-xl relative overflow-hidden flex flex-col justify-center">
                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/20 blur-3xl"></div>
-               <h5 className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Security Note</h5>
+               <h5 className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Catatan Sistem</h5>
                <p className="text-[10px] sm:text-[11px] font-medium leading-relaxed italic text-slate-300">
                  "Integritas data dijamin melalui ID Pesanan yang tetap (Persistence ID) meskipun dilakukan reschedule berulang kali."
                </p>
