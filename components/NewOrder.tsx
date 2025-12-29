@@ -112,7 +112,9 @@ const NewOrder: React.FC<NewOrderProps> = ({ orders, onOrderCreated }) => {
           durationPlan: planDur, durationActual: null,
           details: formData.details, status: 'Requested' as const, createdAt: new Date().toISOString()
         };
-        await sendOrderNotification(finalOrder, 'NEW');
+        
+        // Memanggil notifikasi hanya untuk pesanan baru ini
+        await sendOrderNotification(finalOrder);
         nextIdNumber++;
       }
       onOrderCreated();

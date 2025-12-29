@@ -2,25 +2,24 @@
 import { Order, FonnteResponse, RegistrationData } from '../types';
 import { FONNTE_API_TOKEN, FONNTE_TARGET_GROUP_ID } from '../constants';
 
-export const sendOrderNotification = async (order: Order, type: 'NEW' | 'CHANGE' | 'DELETE' = 'NEW'): Promise<FonnteResponse> => {
-  let title = '🆕 PESANAN UNIT BARU';
-  if (type === 'CHANGE') title = '✏️ PERUBAHAN PESANAN';
-  if (type === 'DELETE') title = '❌ PESANAN DIBATALKAN';
-
+/**
+ * Mengirim notifikasi WhatsApp hanya untuk pesanan baru (Requested).
+ * Format pesan disesuaikan dengan permintaan user.
+ */
+export const sendOrderNotification = async (order: Order): Promise<FonnteResponse> => {
   const message = `
-${title}
-ID: *${order.id}*
-Pemesan: *${order.ordererName}*
+🆕 PERMINTAAN BARU
+ID: ${order.id}
+Pemesan: ${order.ordererName}
 
-*Unit:* ${order.unit}
-*Tanggal:* ${order.date}
-*Waktu:* ${order.startTime} - ${order.endTime}
-*Status:* ${order.status}
+Unit: ${order.unit}
+Tanggal: ${order.date}
+Waktu: ${order.startTime} - ${order.endTime}
 
-*Detail Pekerjaan:*
+Detail Pekerjaan:
 ${order.details}
 
-_Sent via Heavy Equipment Ops System_
+Mohon dibantu untuk permintaan ini, terima kasih.
   `.trim();
 
   try {
