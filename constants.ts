@@ -11,7 +11,8 @@ export const UNIT_TYPES: string[] = [
   'Foco Crane',
   'Primemover',
   'Picker',
-  'TSO'
+  'TSO',
+  'Tangki Air'
 ];
 
 export const STATUS_COLORS: Record<string, string> = {
