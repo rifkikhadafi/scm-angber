@@ -1,6 +1,6 @@
 
 export const FONNTE_API_TOKEN = 'gbEKgb8a9AETB3j7ajST'; 
-export const FONNTE_TARGET_GROUP_ID = '120363046365418088@g.us';
+export const FONNTE_TARGET_GROUP_ID = '120363403693238992@g.us';
 
 // Kredensial Supabase User
 export const SUPABASE_URL = 'https://agksxnigxclyabkxzzcw.supabase.co';
