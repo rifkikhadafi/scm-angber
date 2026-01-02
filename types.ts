@@ -1,5 +1,5 @@
 
-export type UnitType = 'Crane' | 'Foco Crane' | 'Primemover' | 'Picker' | 'TSO' | 'Tangki Air';
+export type UnitType = 'Crane' | 'Foco Crane' | 'Primemover' | 'Picker' | 'TSO' | 'Tangki Air' | 'Forklift';
 
 export type OrderStatus = 'Requested' | 'On Progress' | 'Pending' | 'Closed' | 'Canceled';
 
