@@ -13,6 +13,28 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Order | null>(null);
+  const [displayDate, setDisplayDate] = useState('');
+
+  const toDisplay = (val: string | null) => {
+    if (!val) return '';
+    const [y, m, d] = val.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  const toSource = (val: string) => {
+    const parts = val.split('/');
+    if (parts.length !== 3) return '';
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
+    let formatted = val;
+    if (val.length > 2) formatted = val.slice(0, 2) + '/' + val.slice(2);
+    if (val.length > 4) formatted = formatted.slice(0, 5) + '/' + formatted.slice(5);
+    setDisplayDate(formatted);
+  };
 
   const availableOrders = orders.filter(o => o.status !== 'Closed' && o.status !== 'Canceled');
 
@@ -30,15 +52,22 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
   const handleSelect = (id: string) => {
     setSelectedId(id);
     const order = orders.find(o => o.id === id);
-    if (order) setFormData({ ...order });
-    else setFormData(null);
+    if (order) {
+      setFormData({ ...order });
+      setDisplayDate(toDisplay(order.date));
+    } else {
+      setFormData(null);
+      setDisplayDate('');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData) return;
-    setLoading(true);
+    const sourceDate = toSource(displayDate);
+    if (sourceDate.length !== 10) { alert('Format tanggal tidak valid.'); return; }
 
+    setLoading(true);
     try {
       const planDur = calculatePlanDuration(formData.startTime, formData.endTime);
       const { error: dbError } = await supabase
@@ -46,7 +75,7 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
         .update({
           unit: formData.unit,
           orderer_name: formData.ordererName,
-          date: formData.date,
+          date: sourceDate,
           start_time: formData.startTime,
           end_time: formData.endTime,
           duration_plan: planDur,
@@ -121,7 +150,21 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
 
             <div className="flex flex-col space-y-2">
               <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Tanggal</label>
-              <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer" value={formData.date || ''} onChange={e => setFormData({ ...formData, date: e.target.value })} required />
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="DD/MM/YYYY"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 pr-10 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base" 
+                  value={displayDate} 
+                  onChange={handleDateChange} 
+                  required 
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

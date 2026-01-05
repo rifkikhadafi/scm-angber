@@ -11,6 +11,20 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const [rescheduleData, setRescheduleData] = useState({ date: '', start: '', end: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const toDisplay = (val: string) => {
+    if (!val) return '';
+    const [y, m, d] = val.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
+  const toSource = (val: string) => {
+    const parts = val.split('/');
+    if (parts.length !== 3) return '';
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  };
+
+  const [displayDate, setDisplayDate] = useState('');
+
   const stats = [
     { status: 'Requested' as OrderStatus, label: 'Requested', color: 'text-blue-700 dark:text-blue-400' },
     { status: 'On Progress' as OrderStatus, label: 'Progress', color: 'text-amber-700 dark:text-yellow-400' },
@@ -23,18 +37,17 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   };
 
   const displayedJobs = useMemo(() => {
-    // Jika tidak ada filter yang dipilih
     if (!filterStatus) {
-      // Sembunyikan 'Canceled' (selalu) dan 'Closed' (secara default) di tampilan UI
       return orders.filter(o => o.status !== 'Canceled' && o.status !== 'Closed');
     }
-    // Jika filter dipilih (termasuk jika mengklik 'Closed'), tampilkan hanya status tersebut
     return orders.filter(o => o.status === filterStatus);
   }, [orders, filterStatus]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr || dateStr.trim() === '') return '--/--/----';
-    return dateStr.split('-').reverse().join('-');
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
   };
   
   const formatTime = (timeStr: string | null) => {
@@ -76,7 +89,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
   const getBaseId = (id: string) => id.replace(/^(PENDING-|CANCELED-)+/g, '');
 
   const handleExportExcel = () => {
-    // Logika pemilihan data: Jika filter aktif, ekspor sesuai filter. Jika tidak, ekspor semua kecuali Canceled.
     const ordersToExport = filterStatus 
       ? orders.filter(o => o.status === filterStatus)
       : orders.filter(o => o.status !== 'Canceled');
@@ -111,7 +123,9 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     if (order.status === newStatus) return;
     if (order.status === 'Pending' && newStatus === 'Requested') {
       setRescheduleOrder(order);
-      setRescheduleData({ date: new Date().toISOString().split('T')[0], start: '08:00', end: '17:00' });
+      const today = new Date().toISOString().split('T')[0];
+      setRescheduleData({ date: today, start: '08:00', end: '17:00' });
+      setDisplayDate(toDisplay(today));
       return;
     }
 
@@ -139,8 +153,20 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
     }
   };
 
+  const handleDisplayDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
+    let formatted = val;
+    if (val.length > 2) formatted = val.slice(0, 2) + '/' + val.slice(2);
+    if (val.length > 4) formatted = formatted.slice(0, 5) + '/' + formatted.slice(5);
+    setDisplayDate(formatted);
+  };
+
   const submitReschedule = async () => {
     if (!rescheduleOrder) return;
+    const sourceDate = toSource(displayDate);
+    if (sourceDate.length !== 10) { alert('Format tanggal tidak valid (DD/MM/YYYY).'); return; }
+
     setIsSubmitting(true);
     try {
       const { data: allOrders } = await supabase.from('orders').select('id');
@@ -153,7 +179,7 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
       const newIdString = `REQ-${nextIdNumber}`;
       const planDur = calculatePlanDuration(rescheduleData.start, rescheduleData.end);
       const { error } = await supabase.from('orders').update({
-        id: newIdString, status: 'Requested', date: rescheduleData.date,
+        id: newIdString, status: 'Requested', date: sourceDate,
         start_time: rescheduleData.start, end_time: rescheduleData.end, duration_plan: planDur,
         actual_start_time: null, actual_end_time: null, duration_actual: null
       }).eq('id', rescheduleOrder.id);
@@ -215,7 +241,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
       </div>
 
       <div className="space-y-3">
-        {/* Header Baris (Desktop) */}
         <div className="hidden lg:flex items-center px-6 py-3 bg-slate-200/60 dark:bg-slate-800/50 rounded-xl text-[10px] font-black uppercase text-slate-700 dark:text-slate-400 tracking-widest border border-transparent">
           <div className="w-[10%]">ID</div>
           <div className="w-[15%]">Unit / Pemesan / Tgl</div>
@@ -225,11 +250,9 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
           <div className="w-[15%] text-center">Status</div>
         </div>
 
-        {/* List Pesanan */}
         <div className="space-y-3">
           {displayedJobs.map(order => (
             <React.Fragment key={order.id}>
-              {/* Layout Baris (Desktop) */}
               <div className="hidden lg:flex items-center w-full bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 hover:border-blue-500/40 transition-all group animate-in fade-in shadow-sm">
                 <div className="w-[10%] shrink-0">
                   <span className="text-blue-700 dark:text-blue-400 font-mono text-[11px] font-bold truncate block pr-2" title={order.id}>{order.id}</span>
@@ -280,7 +303,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
                 </div>
               </div>
 
-              {/* Layout Kartu (Tablet & Mobile) */}
               <div className="lg:hidden bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom-2 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
@@ -346,7 +368,6 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
         </div>
       )}
 
-      {/* Reschedule Modal */}
       {rescheduleOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
@@ -354,7 +375,20 @@ const Dashboard: React.FC<{ orders: Order[] }> = ({ orders }) => {
             <div className="space-y-4">
               <div className="flex flex-col space-y-1">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase ml-1">Tanggal Baru</label>
-                <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" value={rescheduleData.date} onChange={e => setRescheduleData({...rescheduleData, date: e.target.value})} />
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="DD/MM/YYYY"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-3 pr-10 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" 
+                    value={displayDate} 
+                    onChange={handleDisplayDateChange} 
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1">

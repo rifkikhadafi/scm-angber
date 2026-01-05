@@ -3,17 +3,30 @@ import { Order, FonnteResponse, RegistrationData } from '../types';
 import { FONNTE_API_TOKEN, FONNTE_TARGET_GROUP_ID } from '../constants';
 
 /**
+ * Helper untuk memformat tanggal dari YYYY-MM-DD ke DD/MM/YYYY
+ */
+const formatDateIndo = (dateStr: string | null): string => {
+  if (!dateStr || dateStr.trim() === '') return '-';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  // Menggunakan pemisah '/' sesuai permintaan user
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+/**
  * Mengirim notifikasi WhatsApp hanya untuk pesanan baru (Requested).
  * Format pesan disesuaikan dengan permintaan user.
  */
 export const sendOrderNotification = async (order: Order): Promise<FonnteResponse> => {
+  const formattedDate = formatDateIndo(order.date);
+  
   const message = `
 🆕 PERMINTAAN BARU
 ID: ${order.id}
 Pemesan: ${order.ordererName}
 
 Unit: ${order.unit}
-Tanggal: ${order.date}
+Tanggal: ${formattedDate}
 Waktu: ${order.startTime} - ${order.endTime}
 
 Detail Pekerjaan:
