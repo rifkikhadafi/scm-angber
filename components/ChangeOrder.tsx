@@ -119,6 +119,11 @@ const ChangeOrder: React.FC<ChangeOrderProps> = ({ orders, onOrderUpdated }) => 
               </div>
             </div>
 
+            <div className="flex flex-col space-y-2">
+              <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Tanggal</label>
+              <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base cursor-pointer" value={formData.date || ''} onChange={e => setFormData({ ...formData, date: e.target.value })} required />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col space-y-2">
                 <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest ml-1">Mulai</label>
